@@ -145,3 +145,60 @@ export const xxxAdapter: PlatformAdapter = {
 
 - 解析的是平台云端已存在的原始文件，不是对带水印素材做修补。
 - `/api/proxy` 与 `/api/zip` 只允许白名单域名，避免被当作任意 URL 代理。
+
+## SEO
+
+接入官方的 [`@nuxtjs/seo`](https://nuxtseo.com)（别名聚合模块），一次装齐 7 个子模块：
+
+| 子模块 | 作用 | 本项目用法 |
+| --- | --- | --- |
+| `nuxt-site-config` | 全站共享信息（url / name / description / locale） | `nuxt.config.ts` 的 `site`，是所有模块的基础 |
+| `nuxt-seo-utils` | meta 默认值、canonical、og/twitter 标签、`useSeoMeta` 增强 | 页面里写 `useSeoMeta`，canonical / og:url 自动补 |
+| `@nuxtjs/sitemap` | 生成 `/sitemap.xml` | 自动，静态路由无需配置 |
+| `@nuxtjs/robots` | 生成 `/robots.txt` + `X-Robots-Tag` + `<meta name="robots">` | 生产环境自动带 `Sitemap:` 行 |
+| `nuxt-schema-org` | JSON-LD 结构化数据 | `useSchemaOrg` 输出 WebSite / WebPage / SoftwareApplication |
+| `nuxt-link-checker` | 构建期检查坏链 | 自动 |
+| `nuxt-og-image` | 动态社交预览图 | **已关闭**，见下方说明 |
+
+### 使用方式
+
+页面级 meta 与结构化数据写在 `app/pages/index.vue`：
+
+```ts
+useSeoMeta({ title, description, ogTitle, ogDescription, ... })
+
+useSchemaOrg([
+  defineWebSite({ name: '去水印', inLanguage: 'zh-CN' }),
+  defineSoftwareApp({ name: '无水印下载工具', applicationCategory: 'MultimediaApplication', ... })
+])
+```
+
+> 注意：可用的 schema-org helper 是 `defineWebSite` / `defineWebPage` / `defineSoftwareApp` /
+> `defineOrganization` / `definePerson` / `defineArticle`，**没有** `defineWebApplication`。
+> `keywords` 也不在 `useSeoMeta` 的类型里，要单独用 `useHead({ meta: [...] })` 挂。
+
+### 两个必须知道的点
+
+1. **线上必须设 `NUXT_SITE_URL`**：`site.url` 决定 canonical 与 sitemap 里的绝对地址，
+   不设会回落到 `http://localhost:3000`。
+
+   ```bash
+   NUXT_SITE_URL=https://your-domain.com node .output/server/index.mjs
+   ```
+
+2. **robots 只在生产环境放开索引**：非生产（含 `nuxt dev`）会输出
+   `Disallow: /`，属模块的安全默认行为。用构建产物启动时要带上 `NODE_ENV=production`
+   才会变成 `indexable`。
+
+3. **og-image 关掉了**：它默认在构建期解析字体、会走 Google Fonts，本环境不可达
+   （实测 10s 超时）。本项目也不生成动态社交图，按官方建议 `ogImage: { enabled: false }`。
+   将来要做社交卡片，配上本地字体文件再打开即可。
+
+### 验证
+
+```bash
+node experiments/seo/check-head.mjs      # title / meta / canonical
+node experiments/seo/check-jsonld.mjs    # JSON-LD 各节点
+curl -s localhost:3000/robots.txt
+curl -s localhost:3000/sitemap.xml
+```
