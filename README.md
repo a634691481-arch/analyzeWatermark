@@ -70,10 +70,23 @@ app/
   components/
     ParseForm.vue        链接输入
     ImageCard.vue        单图卡片（下载 / 复制 / 水印对比）
+    HistoryList.vue      历史记录列表（输入框下方）
+    BackToTop.vue        悬浮回到顶部按钮
   composables/
     useImageParser.ts    解析状态 + 下载动作
-  utils/download.ts      浏览器下载工具
+    useParseHistory.ts   历史记录（localStorage 持久化）
+  utils/
+    download.ts          浏览器下载工具
+    format.ts            相对时间 / 链接截断
 ```
+
+## 历史记录
+
+- 解析成功的记录写入 `localStorage`（键名 `ai-image-dewatermark:history:v1`），刷新页面、下次打开都还在。
+- **点击某条记录直接恢复当时的完整结果，不会重新请求**（图床签名地址有效期到 2036 年，可以放心缓存）。
+- 折叠时最多显示 3 条，点「展开全部」看全部；同一条链接重复解析只会更新，不会堆叠。
+- 最多保留 20 条（`useParseHistory.ts` 里的 `MAX_ENTRIES`），超出后淘汰最旧的。
+- 「重新解析」按钮才会真正重新请求，用于获取最新图片。
 
 ## 新增一个平台
 

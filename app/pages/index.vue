@@ -221,6 +221,8 @@ useHead({
           若作者上传时就只有带水印版本，卡片会标注「仅水印版」。
         </p>
       </section>
+
+      <BackToTop />
     </UContainer>
   </div>
 </template>
