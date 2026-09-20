@@ -1,0 +1,55 @@
+<script setup lang="ts">
+import type { PlatformInfo } from '#shared/types'
+
+const props = defineProps<{
+  modelValue: string
+  loading?: boolean
+  platforms: PlatformInfo[]
+}>()
+
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: string): void
+  (e: 'submit'): void
+}>()
+
+const url = computed({
+  get: () => props.modelValue,
+  set: value => emit('update:modelValue', value)
+})
+
+const names = computed(() => props.platforms.map(item => item.name).join(' / '))
+const example = computed(() => props.platforms[0]?.example ?? '')
+</script>
+
+<template>
+  <form
+    class="mt-8 rounded-2xl bg-elevated p-3 ring ring-default sm:p-4"
+    @submit.prevent="emit('submit')"
+  >
+    <div class="flex flex-col gap-3 sm:flex-row">
+      <UInput
+        v-model="url"
+        class="flex-1"
+        size="xl"
+        icon="i-lucide-link"
+        placeholder="粘贴分享链接，例如 https://www.doubao.com/thread/xxxx"
+        :disabled="loading"
+        :ui="{ base: 'w-full' }"
+      />
+      <UButton
+        type="submit"
+        size="xl"
+        color="primary"
+        icon="i-lucide-sparkles"
+        :loading="loading"
+        :disabled="!url.trim()"
+        label="解析图片"
+      />
+    </div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs text-dimmed">
+      <span>已支持：{{ names || '—' }}</span>
+      <span v-if="example" class="hidden sm:inline">示例：{{ example }}</span>
+    </div>
+  </form>
+</template>
