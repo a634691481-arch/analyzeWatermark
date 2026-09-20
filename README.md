@@ -88,6 +88,12 @@ app/
 - 最多保留 20 条（`useParseHistory.ts` 里的 `MAX_ENTRIES`），超出后淘汰最旧的。
 - 「重新解析」按钮才会真正重新请求，用于获取最新图片。
 
+## 亮色 / 暗色模式
+
+- 由 Nuxt UI 自带的 `@nuxtjs/color-mode` 提供，右上角固定一个 `UColorModeButton` 全局切换（在 `app/app.vue`）。
+- 偏好写入 `localStorage`（键 `nuxt-color-mode`），刷新和下次打开都会保持。
+- 页面所有配色都走 Nuxt UI 语义化 token（`bg-default` / `bg-elevated` / `text-highlighted` / `text-dimmed` / `ring-default`），无需为暗色单独写样式。
+
 ## 新增一个平台
 
 1. 在 `server/utils/platform/` 下新建 `<platform>.ts`，实现 `PlatformAdapter`：
