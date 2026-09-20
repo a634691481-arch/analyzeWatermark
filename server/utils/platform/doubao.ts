@@ -220,13 +220,13 @@ export const doubaoAdapter: PlatformAdapter = {
       throw new ParseError('NO_IMAGES', '该分享里没有解析到图片，请确认链接内容包含 AI 生成的图片')
     }
 
-    const meta = extracted.find(entry => entry.title || entry.author) ?? {}
+    const meta = extracted.find(entry => entry.title || entry.author)
 
     return {
       platform: { id: this.id, name: this.name, example: this.example },
       sourceUrl: url.href,
-      title: meta.title,
-      author: meta.author,
+      title: meta?.title,
+      author: meta?.author,
       images,
       parsedAt: new Date().toISOString()
     }

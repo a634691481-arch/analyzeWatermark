@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { HistoryEntry } from '~/composables/useParseHistory'
 import type { ParsedImage, PlatformInfo } from '#shared/types'
 
 const toast = useToast()
@@ -15,6 +16,7 @@ const {
   allSelected,
   watermarkFreeCount,
   parse,
+  restore,
   toggle,
   toggleAll,
   downloadOne,
@@ -22,9 +24,43 @@ const {
   copyLink
 } = useImageParser()
 
+const {
+  entries: historyEntries,
+  add: addHistory,
+  remove: removeHistory,
+  clear: clearHistory
+} = useParseHistory()
+
 const { data: platforms } = await useFetch<PlatformInfo[]>('/api/platforms', {
   default: () => [] as PlatformInfo[]
 })
+
+/** 解析入口：成功后写入历史 */
+async function runParse() {
+  const data = await parse()
+  if (data) addHistory(data)
+}
+
+async function onRefresh(entry: HistoryEntry) {
+  inputUrl.value = entry.sourceUrl
+  const data = await parse()
+  if (data) addHistory(data)
+  else toast.add({ title: '重新解析失败', description: errorMessage.value, color: 'error', icon: 'i-lucide-triangle-alert' })
+}
+
+function onRestore(entry: HistoryEntry) {
+  inputUrl.value = entry.sourceUrl
+  restore(entry.result)
+}
+
+function onRemove(id: string) {
+  removeHistory(id)
+}
+
+function onClearHistory() {
+  clearHistory()
+  toast.add({ title: '历史记录已清空', color: 'neutral', icon: 'i-lucide-trash-2' })
+}
 
 async function onCopy(image: ParsedImage) {
   const ok = await copyLink(image)
@@ -83,7 +119,7 @@ useHead({
         v-model="inputUrl"
         :loading="loading"
         :platforms="platforms"
-        @submit="parse"
+        @submit="runParse"
       />
 
       <UAlert
@@ -94,6 +130,16 @@ useHead({
         icon="i-lucide-triangle-alert"
         :title="errorMessage"
         description="请确认链接完整可访问，且内容中包含 AI 生成的图片。"
+      />
+
+      <HistoryList
+        :entries="historyEntries"
+        :active-id="result?.sourceUrl"
+        :refreshing="loading"
+        @restore="onRestore"
+        @refresh="onRefresh"
+        @remove="onRemove"
+        @clear="onClearHistory"
       />
 
       <section v-if="result" class="mt-10">

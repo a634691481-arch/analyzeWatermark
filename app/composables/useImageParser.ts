@@ -29,8 +29,9 @@ export function useImageParser() {
   const allSelected = computed(() => images.value.length > 0 && selectedIds.value.length === images.value.length)
   const watermarkFreeCount = computed(() => images.value.filter(image => image.watermarkFree).length)
 
-  async function parse() {
-    if (loading.value) return
+  /** 解析成功后返回结果，便于调用方写入历史记录 */
+  async function parse(): Promise<ParseResult | null> {
+    if (loading.value) return null
     loading.value = true
     errorMessage.value = ''
 
@@ -43,17 +44,19 @@ export function useImageParser() {
       if (response.ok) {
         result.value = response.data
         selectedIds.value = response.data.images.map(image => image.id)
+        return response.data
       }
-      else {
-        result.value = null
-        selectedIds.value = []
-        errorMessage.value = response.error.message
-      }
+
+      result.value = null
+      selectedIds.value = []
+      errorMessage.value = response.error.message
+      return null
     }
     catch (error) {
       result.value = null
       selectedIds.value = []
       errorMessage.value = extractMessage(error)
+      return null
     }
     finally {
       loading.value = false
@@ -130,6 +133,13 @@ export function useImageParser() {
     }
   }
 
+  /** 用已有结果直接恢复界面（历史记录点击） */
+  function restore(value: ParseResult) {
+    result.value = value
+    selectedIds.value = value.images.map(image => image.id)
+    errorMessage.value = ''
+  }
+
   function reset() {
     inputUrl.value = ''
     result.value = null
@@ -149,6 +159,7 @@ export function useImageParser() {
     allSelected,
     watermarkFreeCount,
     parse,
+    restore,
     toggle,
     toggleAll,
     downloadOne,
