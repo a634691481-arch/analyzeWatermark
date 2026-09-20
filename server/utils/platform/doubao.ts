@@ -116,6 +116,7 @@ export const doubaoAdapter: PlatformAdapter = {
   example: 'https://www.doubao.com/thread/xxxxxxxxxxxx',
   // 豆包没有现成的品牌图标，用线稿机器人（lucide:bot）
   icon: 'i-lucide-bot',
+  description: '豆包 AI 生图的无水印原图下载，粘贴分享链接即可取回整个会话里的全部图片，未经二次压缩。',
 
   match(url) {
     return /(^|\.)doubao\.com$/i.test(url.hostname) && THREAD_PATH.test(url.pathname)

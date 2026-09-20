@@ -222,6 +222,7 @@ export const douyinAdapter: PlatformAdapter = {
   example: 'https://v.douyin.com/xxxxxxxx/',
   // 抖音与 TikTok 同源，simple-icons 只有后者
   icon: 'i-simple-icons-tiktok',
+  description: '抖音无水印视频与图文图集下载，支持分享短链，视频默认取 1080P 原画，图集按原始尺寸取回。',
 
   match(url) {
     if (SHORT_HOST.test(url.hostname)) return true

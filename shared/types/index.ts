@@ -11,6 +11,8 @@ export interface PlatformInfo {
   example: string
   /** 平台图标（Iconify 名称），用于在页面上展示已适配平台 */
   icon?: string
+  /** 一句话介绍，用于平台落地页与搜索引擎摘要 */
+  description?: string
 }
 
 /** 媒体类型：豆包只有图，抖音有图也有视频 */

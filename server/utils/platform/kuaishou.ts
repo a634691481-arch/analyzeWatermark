@@ -278,6 +278,7 @@ export const kuaishouAdapter: PlatformAdapter = {
   name: '快手',
   example: 'https://v.kuaishou.com/xxxxxx',
   icon: 'i-simple-icons-kuaishou',
+  description: '快手短视频与图集下载，取平台提供的最高可用画质源文件，支持分享短链。',
 
   match(url) {
     if (SHORT_HOST.test(url.hostname)) return true

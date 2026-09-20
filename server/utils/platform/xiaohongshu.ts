@@ -188,6 +188,7 @@ export const xiaohongshuAdapter: PlatformAdapter = {
   name: '小红书',
   example: 'https://xhslink.cn/o/xxxxxxxx',
   icon: 'i-simple-icons-xiaohongshu',
+  description: '小红书图文笔记的原图下载，自动避开带水印的分享模板，另提供 iPhone 原始 HEIC 文件。',
 
   match(url) {
     if (SHORT_HOST.test(url.hostname)) return true

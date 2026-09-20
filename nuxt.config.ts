@@ -21,12 +21,16 @@ export default defineNuxtConfig({
   /**
    * nuxt-site-config —— 所有 SEO 模块的共享基础信息。
    * v5 起不再从 package.json / 目录名推断，必须显式配置。
-   * 线上务必设环境变量 NUXT_SITE_URL，否则 canonical / sitemap 会指向 localhost。
+   *
+   * 这里的 url 会被 canonical / og:url / sitemap / robots.txt 的 Sitemap 行
+   * 和 JSON-LD 的 @id 一起用。默认值就是线上域名，环境变量可覆盖
+   * （多环境部署时用 NUXT_SITE_URL 指定）。
+   * ⚠️ 曾经因为忘了设这个，线上 canonical 一度是 http://localhost:3000/。
    */
   site: {
-    url: process.env.NUXT_SITE_URL || 'http://localhost:3000',
+    url: process.env.NUXT_SITE_URL || 'https://qsy.mooon.vip',
     name: '去水印',
-    description: '粘贴分享链接，一键取回多平台的无水印原图与原视频，支持批量打包下载。',
+    description: '粘贴分享链接，一键取回豆包 / 抖音 / 小红书 / 千问 / 哔哩哔哩 / 快手 / 微博的无水印原图与原视频，支持批量打包下载。',
     defaultLocale: 'zh-CN'
   },
 
@@ -43,9 +47,10 @@ export default defineNuxtConfig({
     disallow: process.env.NUXT_SITE_INDEXABLE === 'false' ? ['/'] : []
   },
 
-  // sitemap.xml：本项目只有首页一条静态路由
+  // sitemap.xml：首页 + 各平台落地页（落地页清单来自 /api/__sitemap__/urls）
   sitemap: {
-    exclude: ['/api/**']
+    exclude: ['/api/**'],
+    sources: ['/api/__sitemap__/urls']
   },
 
   /**

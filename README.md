@@ -189,28 +189,57 @@ useSchemaOrg([
 > `defineOrganization` / `definePerson` / `defineArticle`，**没有** `defineWebApplication`。
 > `keywords` 也不在 `useSeoMeta` 的类型里，要单独用 `useHead({ meta: [...] })` 挂。
 
-### 两个必须知道的点
+### 平台落地页（长尾流量）
 
-1. **线上必须设 `NUXT_SITE_URL`**：`site.url` 决定 canonical 与 sitemap 里的绝对地址，
-   不设会回落到 `http://localhost:3000`。
+首页只有一个 URL，长尾词（「抖音去水印」「小红书原图下载」…）没有落点。
+所以每个平台一个独立页面：
+
+```
+/qsy.mooon.vip/doubao   /douyin   /xiaohongshu   /qianwen   /bilibili   /kuaishou   /weibo
+```
+
+- 路由是 `app/pages/[platform].vue`，**平台 id 直接取自适配器注册表**，
+  新增平台自动多出一个落地页，不用改代码。
+- 每个页面有独立的 title / description / H1 / 正文 / 三步说明，
+  避免「薄内容」与「重复内容」两个 SEO 坑。
+- 页面底部「其它已支持的平台」做**站内互链**，利于抓取与权重传递。
+- 带 **FAQPage 结构化数据**，有机会在搜索结果里出折叠问答。
+- 不是已知平台的路径直接 **404**，不会被当成有效页面收录。
+
+### OG 社交预览图
+
+`public/og.png`（1200×630，164KB）。生成源是 `experiments/seo/og-card.html`，
+用浏览器按 1200×630 渲染后截图即可重新生成。页面里用相对路径 `/og.png` 声明，
+`seo-utils` 会拼成 `site.url` 下的绝对地址。
+
+### 三个必须知道的点
+
+1. **`site.url` 必须对**：它同时决定 canonical、`og:url`、`og:image`、
+   sitemap 的 `<loc>`、`robots.txt` 里的 `Sitemap:` 行、以及 JSON-LD 的 `@id`。
+   默认值已写死为线上域名 `https://qsy.mooon.vip`，多环境部署用 `NUXT_SITE_URL` 覆盖：
 
    ```bash
    NUXT_SITE_URL=https://your-domain.com node .output/server/index.mjs
    ```
 
+   > 曾经因为没设这个，线上 canonical 一度是 `http://localhost:3000/` ——
+   > 那等于告诉搜索引擎「真正的页面在本地」，整站可能被踢出索引。改动前后务必核对。
+
 2. **robots 只在生产环境放开索引**：非生产（含 `nuxt dev`）会输出
    `Disallow: /`，属模块的安全默认行为。用构建产物启动时要带上 `NODE_ENV=production`
    才会变成 `indexable`。
 
-3. **og-image 关掉了**：它默认在构建期解析字体、会走 Google Fonts，本环境不可达
-   （实测 10s 超时）。本项目也不生成动态社交图，按官方建议 `ogImage: { enabled: false }`。
-   将来要做社交卡片，配上本地字体文件再打开即可。
+3. **og-image 模块是关掉的**：它默认在构建期解析字体、会走 Google Fonts，本环境不可达
+   （实测 10s 超时）。这里用静态 `public/og.png` 代替，不依赖动态生成。
 
 ### 验证
 
 ```bash
-node experiments/seo/check-head.mjs      # title / meta / canonical
+# 起生产产物（robots 才会是 indexable）
+NODE_ENV=production node .output/server/index.mjs
+
+node experiments/seo/verify-seo.mjs      # 首页 + 7 个落地页 + 404 + robots + sitemap + og.png
+node experiments/seo/check-head.mjs      # 单个页面的 title / meta / canonical
 node experiments/seo/check-jsonld.mjs    # JSON-LD 各节点
-curl -s localhost:3000/robots.txt
-curl -s localhost:3000/sitemap.xml
+node experiments/seo/check-live.mjs      # 体检线上站点（改完记得复查）
 ```

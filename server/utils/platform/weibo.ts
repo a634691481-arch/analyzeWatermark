@@ -308,6 +308,7 @@ export const weiboAdapter: PlatformAdapter = {
   name: '微博',
   example: 'https://video.weibo.com/show?fid=1034:5342648219926608',
   icon: 'i-simple-icons-sinaweibo',
+  description: '微博视频下载，同时支持正文分享链接与视频页链接，取微博下发的原始文件。',
 
   match(url) {
     if (H5_VIDEO_HOST.test(url.hostname)) return H5_SHOW_PATH.test(url.pathname)

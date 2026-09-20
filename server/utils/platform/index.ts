@@ -25,7 +25,8 @@ export function supportedPlatforms(): PlatformInfo[] {
     id: adapter.id,
     name: adapter.name,
     example: adapter.example,
-    icon: adapter.icon
+    icon: adapter.icon,
+    description: adapter.description
   }))
 }
 

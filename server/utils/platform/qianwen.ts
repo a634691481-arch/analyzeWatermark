@@ -195,6 +195,7 @@ export const qianwenAdapter: PlatformAdapter = {
   name: '千问',
   example: 'https://qianwen.my.cn/share/chat/xxxxxxxx',
   icon: 'i-simple-icons-qwen',
+  description: '千问生成的图片与视频无水印下载，按会话顺序还原全部生成结果，支持批量打包。',
 
   match(url) {
     return SHARE_HOST.test(url.hostname) && SHARE_PATH.test(url.pathname)

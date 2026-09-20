@@ -92,9 +92,12 @@ useSeoMeta({
   ogType: 'website',
   ogSiteName: '去水印',
   ogLocale: 'zh_CN',
+  // 相对路径会由 seo-utils 拼成 site.url 下的绝对地址
+  ogImage: '/og.png',
   twitterCard: 'summary_large_image',
   twitterTitle: '无水印下载工具 · 一键取回原始文件',
-  twitterDescription: '粘贴分享文案，取回未压缩的无水印原图与原视频。'
+  twitterDescription: '粘贴分享文案，取回未压缩的无水印原图与原视频。',
+  twitterImage: '/og.png'
 })
 
 // keywords 不在 useSeoMeta 的类型里，单独挂

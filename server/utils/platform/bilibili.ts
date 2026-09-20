@@ -167,6 +167,7 @@ export const bilibiliAdapter: PlatformAdapter = {
   name: '哔哩哔哩',
   example: 'https://b23.tv/BV1uDe16vE51',
   icon: 'i-simple-icons-bilibili',
+  description: 'B 站视频原画下载，音视频合一的单文件 mp4，支持多分P 一次取回，并附封面图。',
 
   match(url) {
     if (SHORT_HOST.test(url.hostname)) return true

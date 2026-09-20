@@ -17,6 +17,8 @@ export interface PlatformAdapter {
   example: string
   /** 平台图标（Iconify 名称），页面上展示已适配平台时用 */
   icon?: string
+  /** 一句话介绍，用于平台落地页与搜索引擎摘要 */
+  description?: string
   /** 判断这条链接是否交给本适配器处理 */
   match(url: URL): boolean
   /** 解析分享链接，产出归一化后的媒体列表 */
