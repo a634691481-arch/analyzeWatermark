@@ -40,6 +40,7 @@ const contactOpen = useState('contact-dialog-open', () => false)
         :loading="loading"
         :disabled="!url.trim()"
         label="解析"
+        :ui="{ base: 'justify-center' }"
       />
     </div>
 

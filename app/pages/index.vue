@@ -36,6 +36,13 @@ const platformSlash = computed(() => platformNames.value.join(' / '))
 const platformKeywords = computed(() => platformNames.value.map(name => `${name}去水印`).join(','))
 const platformFeatures = computed(() => platformNames.value.map(name => `${name}无水印下载`))
 
+/** 摘要栏三个操作按钮：移动端要挤在一行里，所以收窄内边距、缩小字号、隐藏图标 */
+const compactAction = {
+  base: 'justify-center px-2 sm:px-3',
+  label: 'text-[11px] sm:text-sm truncate',
+  leadingIcon: 'hidden sm:inline-block'
+}
+
 /** 放大预览：null 表示关闭，否则是 media 数组下标 */
 const previewIndex = ref<number | null>(null)
 
@@ -190,13 +197,15 @@ useSchemaOrg([
             </p>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2">
+          <!-- 移动端：三个按钮等分一行；sm 以上恢复自适应排列 -->
+          <div class="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
             <UButton
               size="sm"
               color="neutral"
               variant="outline"
               :icon="allSelected ? 'i-lucide-square' : 'i-lucide-check-check'"
               :label="allSelected ? '取消全选' : '全选'"
+              :ui="compactAction"
               @click="toggleAll"
             />
             <UButton
@@ -207,6 +216,7 @@ useSchemaOrg([
               label="打包下载全部"
               :loading="zipping"
               :disabled="!media.length"
+              :ui="compactAction"
               @click="downloadZip(media)"
             />
             <UButton
@@ -216,6 +226,7 @@ useSchemaOrg([
               :label="`下载选中 (${selectedMedia.length})`"
               :loading="zipping"
               :disabled="!selectedMedia.length"
+              :ui="compactAction"
               @click="downloadZip(selectedMedia)"
             />
           </div>
