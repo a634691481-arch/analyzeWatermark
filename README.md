@@ -1,6 +1,15 @@
-# AI 生图去水印
+# 无水印下载工具
 
-粘贴 AI 生图的分享链接，解析出云端保存的**无水印原图**并下载。Nuxt 4 + Nuxt UI 4 实现，无第三方抓取依赖。
+粘贴分享链接，解析出平台云端保存的**无水印原图 / 原视频**并下载。Nuxt 4 + Nuxt UI 4，无第三方抓取依赖。
+
+## 已支持平台
+
+| 平台 | 单视频 | 图文/图集 | 提取方式 |
+| --- | --- | --- | --- |
+| 豆包 | — | ✅ | `image_ori_raw` 模板 |
+| 抖音 | ✅ | ✅ | 视频 `playwm`→`play`；图片 `url_list` |
+| 小红书 | ⚠️ 未验证 | ✅ | `nd_dft_*` 模板（`h5_*` 带水印） |
+| 千问 | ✅ | ✅ | `display_list` 的 `image` / `video` 字段 |
 
 ## 快速开始
 
@@ -13,18 +22,19 @@ pnpm typecheck  # 类型检查
 
 ## 核心原理
 
-AI 生图平台在 CDN 上通常同时保存两份文件：一份是展示用的**带水印**版本，一份是**未压缩、无水印的原始文件**。去水印的本质不是修图，而是把后者的地址取出来。
+AI 生图与短视频平台在 CDN 上通常同时保存两份文件：一份是展示用的**带水印**版本，一份是**未压缩、无水印的原始文件**。去水印的本质不是修图，而是把后者的地址取出来。
 
-以豆包为例，同一张图有多个模板变体：
+各平台的具体形态：
 
-| 字段 | URL 模板 | 说明 |
+| 平台 | 带水印 | 无水印 |
 | --- | --- | --- |
-| `image_ori_raw` | `~tplv-xxx-image_raw.png` | 无水印原图（目标） |
-| `image_ori` | `~tplv-xxx-cdld_wm3.png` | 带水印（wm = watermark） |
-| `image_preview` | `~tplv-xxx-cpreview_wm1.png` | 带水印预览图 |
-| `image_thumb` | `~tplv-xxx-cthumb_wm1.png` | 带水印缩略图 |
-
-这些签名地址就藏在分享页内嵌的 SSR 数据里。
+| 豆包 | `~tplv-xxx-cdld_wm3` / `cpreview_wm1` | `~tplv-xxx-image_raw` |
+| 抖音视频 | `/aweme/v1/playwm/` | `/aweme/v1/play/` |
+| 抖音图片 | `~tplv-...-new-water:...` | `~tplv-...-new:...` |
+| 小红书视频 | `media.stream.h264[].masterUrl` | `sns-video-bd/{originVideoKey}` |
+| 小红书图片 | `!h5_1080jpg` / `!h5_1080webp` | `!nd_dft_*` 模板，或 `{fileId}` 源文件 |
+| 千问图片 | `watermark_image[]` | `image[]` |
+| 千问视频 | `download_video[]` | `video[]` |
 
 ## 数据流
 
@@ -34,15 +44,15 @@ AI 生图平台在 CDN 上通常同时保存两份文件：一份是展示用的
   ├──────────────────────────►│ 1. 校验链接，选择平台适配器      │
   │                           │ 2. 拉取分享页 HTML ──────────►│
   │                           │ 3. 提取内嵌 SSR 数据           │
-  │                           │ 4. 遍历找图片、取无水印地址      │
-  │◄──────────────────────────┤ 5. 归一化成 ParsedImage[]     │
+  │                           │ 4. 遍历找媒体、取无水印地址      │
+  │◄──────────────────────────┤ 5. 归一化成 ParsedMedia[]     │
   │                           │                              │
   │ GET /api/proxy?url=&download=1                           │
-  ├──────────────────────────►│ 补 Referer 转发 ─────────────►│ 图床有防盗链
-  │◄──────────────────────────┤ Content-Disposition: attachment
+  ├──────────────────────────►│ 转发 + Content-Disposition ──►│
+  │◄──────────────────────────┤ attachment（视频才不会被内联播放）
   │                           │
   │ POST /api/zip  {files[]}  │
-  ├──────────────────────────►│ 逐张下载 + 内存打包 zip
+  ├──────────────────────────►│ 逐个下载 + 内存打包 zip
   │◄──────────────────────────┤ application/zip
 ```
 
@@ -52,49 +62,45 @@ AI 生图平台在 CDN 上通常同时保存两份文件：一份是展示用的
 shared/types/            前后端共享的数据契约（唯一事实来源）
 server/
   api/
-    parse.post.ts        POST /api/parse    解析链接
-    proxy.get.ts         GET  /api/proxy    代下载（绕防盗链 + 强制附件下载）
-    zip.post.ts          POST /api/zip      批量打包下载
+    parse.post.ts        POST /api/parse     解析链接
+    proxy.get.ts         GET  /api/proxy     代下载（绕防盗链 + 强制附件下载）
+    zip.post.ts          POST /api/zip       批量打包下载
     platforms.get.ts     GET  /api/platforms 平台清单
   utils/
     platform/
       types.ts           PlatformAdapter 接口
       index.ts           适配器注册表 + 链接校验
-      doubao.ts          豆包适配器
-    http.ts              HTML 抓取 / 实体解码 / SSR 数据提取
-    security.ts          域名白名单（SSRF 防护）、文件名清洗
+      doubao.ts          豆包
+      douyin.ts          抖音
+      xiaohongshu.ts     小红书
+      qianwen.ts         千问
+    http.ts              HTML 抓取 / 实体解码 / SSR 字面量提取
+    json-walk.ts         通用 JSON 深度遍历（自动解包嵌套 JSON 字符串）
+    security.ts          域名白名单（SSRF 防护）、UA、文件名清洗
     zip.ts               store 模式 ZIP 打包（零依赖）
     errors.ts            可预期的解析错误
 app/
   pages/index.vue        主页面
   components/
     ParseForm.vue        链接输入
-    ImageCard.vue        单图卡片（下载 / 复制 / 水印对比）
-    HistoryList.vue      历史记录列表（输入框下方）
+    MediaCard.vue        单个媒体卡片（图片/视频自适应、下载、放大预览）
+    MediaPreview.vue     点击放大预览（左右方向键切换、Esc 关闭）
     BackToTop.vue        悬浮回到顶部按钮
   composables/
-    useImageParser.ts    解析状态 + 下载动作
-    useParseHistory.ts   历史记录（localStorage 持久化）
+    useMediaParser.ts    解析状态 + 下载动作
   utils/
-    download.ts          浏览器下载工具
-    format.ts            相对时间 / 链接截断
+    download.ts          浏览器下载 / 代理地址工具
+    format.ts            时长格式化
+experiments/             每个平台的「先隔离验证」脚本与结论台账
 ```
 
-## 历史记录
-
-- 解析成功的记录写入 `localStorage`（键名 `ai-image-dewatermark:history:v1`），刷新页面、下次打开都还在。
-- **点击某条记录直接恢复当时的完整结果，不会重新请求**（图床签名地址有效期到 2036 年，可以放心缓存）。
-- 折叠时最多显示 3 条，点「展开全部」看全部；同一条链接重复解析只会更新，不会堆叠。
-- 最多保留 20 条（`useParseHistory.ts` 里的 `MAX_ENTRIES`），超出后淘汰最旧的。
-- 「重新解析」按钮才会真正重新请求，用于获取最新图片。
-
-## 亮色 / 暗色模式
-
-- 由 Nuxt UI 自带的 `@nuxtjs/color-mode` 提供，右上角固定一个 `UColorModeButton` 全局切换（在 `app/app.vue`）。
-- 偏好写入 `localStorage`（键 `nuxt-color-mode`），刷新和下次打开都会保持。
-- 页面所有配色都走 Nuxt UI 语义化 token（`bg-default` / `bg-elevated` / `text-highlighted` / `text-dimmed` / `ring-default`），无需为暗色单独写样式。
-
 ## 新增一个平台
+
+先把链接跑通再动主流程，具体做法见 `experiments/douyin/NOTES.md` 与
+`experiments/xiaohongshu/NOTES.md`（里面记录了每个平台的请求契约、
+水印地址差异、以及踩过的坑）。
+
+合并步骤：
 
 1. 在 `server/utils/platform/` 下新建 `<platform>.ts`，实现 `PlatformAdapter`：
 
@@ -106,20 +112,36 @@ export const xxxAdapter: PlatformAdapter = {
   match: url => url.hostname.endsWith('xxx.com'),
   async parse(url) {
     const html = await fetchHtml(url.href)
-    // 提取图片，产出 ParsedImage[]（url 指向无水印原图）
-    return { platform: {...}, sourceUrl: url.href, images, parsedAt: new Date().toISOString() }
+    // 提取媒体，产出 ParsedMedia[]（url 指向无水印文件）
+    return { platform: {...}, sourceUrl: url.href, media, parsedAt: new Date().toISOString() }
   }
 }
 ```
 
 2. 注册到 `server/utils/platform/index.ts` 的 `platformAdapters` 数组。
 
-3. 补充 `server/utils/security.ts` 里的 `ALLOWED_IMAGE_HOSTS` 图床域名。
+3. 把该平台的资源域名加进 `server/utils/security.ts` 的 `ALLOWED_MEDIA_HOSTS`。
 
 前端、API 路由、下载逻辑都不用改。
 
+## 设计要点
+
+- **不写死 JSON 路径**：各平台会调整 SSR 字段层级（抖音图文与视频的
+  loaderData key 就不同），所以用 `findFirstNode` / `forEachNode` 递归遍历，
+  并自动解包「被二次编码成字符串的 JSON」。
+- **诚实标注**：拿不到真正无水印文件时回退到带水印版本，并把
+  `watermarkFree` 置为 `false`，卡片会显示「仅水印版」。
+- **要验证水印本身，不能只看地址形态**：小红书同一张图有 `h5_*` 与 `nd_dft_*`
+  两族模板，两族都能 200、尺寸也对，但只有 `nd_dft_*` 不带水印。
+  判定方法是把两族缩放到同尺寸做**带符号**亮度差：只亮不暗、
+  且差异呈细笔划分布，才是服务端叠加的水印层（详见
+  `experiments/xiaohongshu/NOTES.md`）。
+- **源文件另开一栏**：主下载地址优先选通用格式（JPEG/MP4）；像小红书原图是
+  iPhone HEIC 这种不通用格式，用 `originalUrl` 单独挂一枚按钮由用户自选。
+- **代理层保持平台无关**：所有资源都不需要 Referer，代理只做「白名单校验 +
+  补 UA + attachment 响应」，不掺平台逻辑。
+
 ## 说明
 
-- 解析的是平台云端已存在的原始文件，不是对带水印图片做修补。若作者上传时就只有带水印版本，卡片会标注「仅水印版」。
-- `data-fn-args` 属性值和 `_ROUTER_DATA` 两种 SSR 数据来源都会尝试；遍历时不写死 JSON 路径，并自动解包被二次编码的 JSON 字符串，以适应页面结构变化。
+- 解析的是平台云端已存在的原始文件，不是对带水印素材做修补。
 - `/api/proxy` 与 `/api/zip` 只允许白名单域名，避免被当作任意 URL 代理。

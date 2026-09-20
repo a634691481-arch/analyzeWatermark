@@ -22,3 +22,8 @@ logs
 .env
 .env.*
 !.env.example
+
+# 实验目录的抓包产物（HTML/JSON/媒体样本，体积大，不入库）
+# 只保留脚本 .mjs 与结论 NOTES.md
+experiments/**/_*
+experiments/**/_artifacts/

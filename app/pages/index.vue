@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { HistoryEntry } from '~/composables/useParseHistory'
-import type { ParsedImage, PlatformInfo } from '#shared/types'
+import type { ParsedMedia, PlatformInfo } from '#shared/types'
 
 const toast = useToast()
 
@@ -10,63 +9,42 @@ const {
   zipping,
   errorMessage,
   result,
-  images,
+  media,
   selectedIds,
-  selectedImages,
+  selectedMedia,
   allSelected,
   watermarkFreeCount,
   parse,
-  restore,
   toggle,
   toggleAll,
   downloadOne,
+  downloadOriginal,
   downloadZip,
   copyLink
-} = useImageParser()
-
-const {
-  entries: historyEntries,
-  add: addHistory,
-  remove: removeHistory,
-  clear: clearHistory
-} = useParseHistory()
+} = useMediaParser()
 
 const { data: platforms } = await useFetch<PlatformInfo[]>('/api/platforms', {
   default: () => [] as PlatformInfo[]
 })
 
-/** 解析入口：成功后写入历史 */
-async function runParse() {
-  const data = await parse()
-  if (data) addHistory(data)
+/** 放大预览：null 表示关闭，否则是 media 数组下标 */
+const previewIndex = ref<number | null>(null)
+
+/** 换一批结果时收起预览，避免下标指向错位 */
+watch(result, () => {
+  previewIndex.value = null
+})
+
+function onPreview(item: ParsedMedia) {
+  const position = media.value.findIndex(entry => entry.id === item.id)
+  if (position >= 0) previewIndex.value = position
 }
 
-async function onRefresh(entry: HistoryEntry) {
-  inputUrl.value = entry.sourceUrl
-  const data = await parse()
-  if (data) addHistory(data)
-  else toast.add({ title: '重新解析失败', description: errorMessage.value, color: 'error', icon: 'i-lucide-triangle-alert' })
-}
-
-function onRestore(entry: HistoryEntry) {
-  inputUrl.value = entry.sourceUrl
-  restore(entry.result)
-}
-
-function onRemove(id: string) {
-  removeHistory(id)
-}
-
-function onClearHistory() {
-  clearHistory()
-  toast.add({ title: '历史记录已清空', color: 'neutral', icon: 'i-lucide-trash-2' })
-}
-
-async function onCopy(image: ParsedImage) {
-  const ok = await copyLink(image)
+async function onCopy(item: ParsedMedia) {
+  const ok = await copyLink(item)
   toast.add({
     title: ok ? '链接已复制' : '复制失败',
-    description: ok ? '已复制无水印原图地址' : '浏览器拒绝了剪贴板访问，请手动复制',
+    description: ok ? '已复制无水印资源地址' : '浏览器拒绝了剪贴板访问，请手动复制',
     color: ok ? 'success' : 'error',
     icon: ok ? 'i-lucide-check' : 'i-lucide-triangle-alert'
   })
@@ -75,23 +53,23 @@ async function onCopy(image: ParsedImage) {
 const steps = [
   {
     no: 'STEP 1',
-    title: '复制分享链接',
-    text: '在豆包 App 或网页端打开会话，点分享并复制链接。'
+    title: '复制分享文案',
+    text: '在 App 里点分享并复制，整段文案直接粘进来就行，会自动挑出链接。'
   },
   {
     no: 'STEP 2',
     title: '粘贴并解析',
-    text: '把链接粘贴到上方输入框，点击「解析图片」。'
+    text: '把链接粘贴到上方输入框，点击「解析」。'
   },
   {
     no: 'STEP 3',
-    title: '下载无水印原图',
-    text: '单张下载，或勾选多张后打包成一个 zip 下载。'
+    title: '下载无水印文件',
+    text: '单个下载，或勾选多个后打包成一个 zip 下载。'
   }
 ]
 
 useHead({
-  title: 'AI 生图去水印 · 一键解析无水印原图'
+  title: 'AI 生图 / 短视频去水印 · 一键解析无水印原片'
 })
 </script>
 
@@ -104,14 +82,14 @@ useHead({
           variant="subtle"
           size="sm"
           icon="i-lucide-image-down"
-          label="AI 生图工具箱"
+          label="无水印下载工具"
         />
         <h1 class="mt-4 text-3xl font-bold tracking-tight text-highlighted sm:text-4xl">
-          一键解析无水印原图
+          一键解析无水印原片
         </h1>
         <p class="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
-          粘贴 AI 生图的分享链接，自动提取云端保存的<b class="text-highlighted">无水印原图</b>，
-          支持单张下载与批量打包，无需安装任何插件。
+          粘贴分享链接，自动提取云端保存的<b class="text-highlighted">无水印原图 / 原视频</b>，
+          支持单个下载与批量打包，无需安装任何插件。
         </p>
       </header>
 
@@ -119,7 +97,7 @@ useHead({
         v-model="inputUrl"
         :loading="loading"
         :platforms="platforms"
-        @submit="runParse"
+        @submit="parse"
       />
 
       <UAlert
@@ -129,17 +107,7 @@ useHead({
         variant="subtle"
         icon="i-lucide-triangle-alert"
         :title="errorMessage"
-        description="请确认链接完整可访问，且内容中包含 AI 生成的图片。"
-      />
-
-      <HistoryList
-        :entries="historyEntries"
-        :active-id="result?.sourceUrl"
-        :refreshing="loading"
-        @restore="onRestore"
-        @refresh="onRefresh"
-        @remove="onRemove"
-        @clear="onClearHistory"
+        description="请确认链接完整可访问，且内容中包含图片或视频。"
       />
 
       <section v-if="result" class="mt-10">
@@ -150,11 +118,11 @@ useHead({
             <div class="flex items-center gap-2">
               <UBadge :label="result.platform.name" color="primary" variant="subtle" size="sm" />
               <span class="truncate text-sm font-medium text-highlighted">
-                {{ result.title || '分享会话' }}
+                {{ result.title || '未命名作品' }}
               </span>
             </div>
             <p class="mt-1 text-xs text-dimmed">
-              共 {{ images.length }} 张 · 无水印 {{ watermarkFreeCount }} 张 · 已选 {{ selectedImages.length }} 张
+              共 {{ media.length }} 个 · 无水印 {{ watermarkFreeCount }} 个 · 已选 {{ selectedMedia.length }} 个
               <template v-if="result.author"> · 作者 {{ result.author }}</template>
             </p>
           </div>
@@ -175,29 +143,31 @@ useHead({
               icon="i-lucide-package"
               label="打包下载全部"
               :loading="zipping"
-              :disabled="!images.length"
-              @click="downloadZip(images)"
+              :disabled="!media.length"
+              @click="downloadZip(media)"
             />
             <UButton
               size="sm"
               color="primary"
               icon="i-lucide-download"
-              :label="`下载选中 (${selectedImages.length})`"
+              :label="`下载选中 (${selectedMedia.length})`"
               :loading="zipping"
-              :disabled="!selectedImages.length"
-              @click="downloadZip(selectedImages)"
+              :disabled="!selectedMedia.length"
+              @click="downloadZip(selectedMedia)"
             />
           </div>
         </div>
 
         <div class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <ImageCard
-            v-for="image in images"
-            :key="image.id"
-            :image="image"
-            :selected="selectedIds.includes(image.id)"
+          <MediaCard
+            v-for="item in media"
+            :key="item.id"
+            :item="item"
+            :selected="selectedIds.includes(item.id)"
             @toggle="toggle"
+            @preview="onPreview"
             @download="downloadOne"
+            @download-original="downloadOriginal"
             @copy="onCopy"
           />
         </div>
@@ -217,12 +187,19 @@ useHead({
         </div>
 
         <p class="mt-8 text-center text-xs leading-relaxed text-dimmed">
-          原理说明：解析的是平台云端保存的<u>未压缩原始文件</u>，而不是对带水印图片做修补。<br>
+          原理说明：解析的是平台云端保存的<u>未压缩原始文件</u>，而不是对带水印素材做修补。<br>
           若作者上传时就只有带水印版本，卡片会标注「仅水印版」。
         </p>
       </section>
 
       <BackToTop />
+
+      <MediaPreview
+        v-model:index="previewIndex"
+        :media="media"
+        @download="downloadOne"
+        @download-original="downloadOriginal"
+      />
     </UContainer>
   </div>
 </template>

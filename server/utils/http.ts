@@ -111,11 +111,13 @@ export function readFnArgsAttributes(html: string): string[] {
 }
 
 /**
- * 提取 `_ROUTER_DATA = {...}` 这个对象字面量（花括号配对，忽略字符串内的括号）。
- * 它是页面的另一份 SSR 数据来源，结构随版本变化，所以两种来源都尝试。
+ * 提取 `marker = {...}` 形式的 JS 对象字面量（花括号配对，忽略字符串内的括号）。
+ *
+ * 用法示例：
+ *   readJsObjectLiteral(html, '_ROUTER_DATA = ')      // 抖音 / 豆包
+ *   readJsObjectLiteral(html, '__INITIAL_STATE__=')  // 小红书
  */
-export function readRouterDataLiteral(html: string): string | null {
-  const marker = '_ROUTER_DATA = '
+export function readJsObjectLiteral(html: string, marker: string): string | null {
   const start = html.indexOf(marker)
   if (start === -1) return null
 
@@ -144,4 +146,16 @@ export function readRouterDataLiteral(html: string): string | null {
   }
 
   return null
+}
+
+/**
+ * 小红书的 `__INITIAL_STATE__` 里带着 JS 的 `undefined` 字面量，不是严格 JSON。
+ * 先把裸 `undefined` 换成 `null` 再解析。
+ */
+export function parseLooseJsonState(literal: string): unknown {
+  const sanitized = literal
+    .replace(/:\s*undefined(?=[,}])/g, ':null')
+    .replace(/\[\s*undefined(?=[,\]])/g, '[null')
+    .replace(/,\s*undefined(?=[,\]])/g, ',null')
+  return safeJsonParse(sanitized)
 }

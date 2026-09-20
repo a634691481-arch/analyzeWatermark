@@ -1,14 +1,8 @@
-import type { ParseResult, ParsedImage } from '#shared/types'
+import type { ParseResult, ParsedMedia } from '#shared/types'
 import type { ImageVariant, PlatformAdapter } from './types'
 import { ParseError } from '../errors'
-import {
-  decodeHtmlEntities,
-  fetchHtml,
-  readFnArgsAttributes,
-  readRouterDataLiteral,
-  safeJsonParse,
-  tryParseJsonString
-} from '../http'
+import { decodeHtmlEntities, fetchHtml, readFnArgsAttributes, readJsObjectLiteral, safeJsonParse } from '../http'
+import { forEachNode } from '../json-walk'
 
 const THREAD_PATH = /^\/thread\/([A-Za-z0-9_-]+)\/?$/
 
@@ -35,16 +29,16 @@ interface CollectedImage {
   prompt?: string
 }
 
-interface ExtractResult {
-  images: CollectedImage[]
-  title?: string
-  author?: string
-}
-
-/** 判断一个对象是不是豆包的图片对象（至少含一个带 url 的尺寸变体） */
+/**
+ * 判断一个对象是不是豆包的作品图片。
+ *
+ * 必须带 TOS key —— 页面里还散布着一些「无 key、无尺寸」的占位变体
+ * （它们也有 image_preview.url 之类的字段），不加这道闸会把垃圾一起收进来。
+ */
 function isImagePayload(value: unknown): value is DoubaoImage {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const candidate = value as DoubaoImage
+  if (typeof candidate.key !== 'string' || !candidate.key) return false
   return Boolean(
     candidate.image_ori_raw?.url
     || candidate.image_ori?.url
@@ -54,8 +48,6 @@ function isImagePayload(value: unknown): value is DoubaoImage {
 }
 
 /**
- * 读取页面内嵌的 SSR 数据。
- *
  * 页面存在两种数据来源，且形态随版本波动，所以两条路都走：
  *   1. <script data-fn-args="..."> 属性（可能是单引号也可能是双引号）
  *   2. _ROUTER_DATA = { ... } 对象字面量
@@ -63,96 +55,26 @@ function isImagePayload(value: unknown): value is DoubaoImage {
 function extractEmbeddedPayloads(html: string): unknown[] {
   const payloads: unknown[] = []
 
+  // data-fn-args 属性值（引号形式不固定，用逐字符扫描）
   for (const raw of readFnArgsAttributes(html)) {
     const parsed = safeJsonParse(decodeHtmlEntities(raw))
     if (parsed !== undefined) payloads.push(parsed)
   }
 
-  const literal = readRouterDataLiteral(html)
+  const literal = readJsObjectLiteral(html, '_ROUTER_DATA = ')
   if (literal) {
     const parsed = safeJsonParse(literal)
     if (parsed !== undefined) payloads.push(parsed)
   }
 
   if (!payloads.length) {
-    throw new ParseError('NO_IMAGES', '未能从页面读取到分享数据，可能是链接已失效或页面改版', 502)
+    throw new ParseError('NO_MEDIA', '未能从页面读取到分享数据，可能是链接已失效或页面改版', 502)
   }
   return payloads
 }
 
-const MAX_WALK_DEPTH = 16
-
-/**
- * 深度优先遍历整份 SSR 数据，收集图片对象。
- *
- * 两个关键设计：
- *  1. 不写死 JSON 路径 —— 豆包会调整字段层级，路径写死容易失效；
- *     按文档顺序遍历则始终能拿到数据，且顺序即会话顺序。
- *  2. 遇到「JSON 字符串」自动解包 —— 页面会把 message.content、
- *     routerDataFnArgs 这类字段再包一层字符串，不解包就看不到图片。
- */
-function extractFromPayload(payload: unknown): ExtractResult {
-  const result: ExtractResult = { images: [] }
-  const visited = new WeakSet<object>()
-
-  const visit = (node: unknown, inheritedPrompt: string | undefined, depth: number) => {
-    if (depth > MAX_WALK_DEPTH || node === null || node === undefined) return
-
-    if (typeof node === 'string') {
-      const nested = tryParseJsonString(node)
-      if (nested !== undefined) visit(nested, inheritedPrompt, depth + 1)
-      return
-    }
-
-    if (typeof node !== 'object' || visited.has(node)) return
-    visited.add(node)
-
-    if (Array.isArray(node)) {
-      for (const item of node) visit(item, inheritedPrompt, depth + 1)
-      return
-    }
-
-    const record = node as Record<string, unknown>
-
-    // 分享元信息
-    const shareInfo = record.share_info as
-      | { share_name?: unknown, user?: { nick_name?: unknown } }
-      | undefined
-    if (shareInfo && typeof shareInfo === 'object') {
-      if (!result.title && typeof shareInfo.share_name === 'string') result.title = shareInfo.share_name
-      const nickName = shareInfo.user?.nick_name
-      if (!result.author && typeof nickName === 'string') result.author = nickName
-    }
-
-    // 提示词向下继承，便于挂到图片上
-    const genParams = record.gen_params as { prompt?: unknown } | undefined
-    const prompt = typeof genParams?.prompt === 'string' ? genParams.prompt : inheritedPrompt
-
-    // 形如 { image: {...}, gen_params: {...} } 的 creation 节点
-    if (isImagePayload(record.image)) {
-      result.images.push({ payload: record.image, prompt })
-      for (const [key, value] of Object.entries(record)) {
-        if (key === 'image') continue
-        visit(value, prompt, depth + 1)
-      }
-      return
-    }
-
-    // 本身就是图片对象的节点
-    if (isImagePayload(record)) {
-      result.images.push({ payload: record, prompt })
-      return
-    }
-
-    for (const value of Object.values(record)) visit(value, prompt, depth + 1)
-  }
-
-  visit(payload, undefined, 0)
-  return result
-}
-
 /** 把豆包的图片对象转成统一结构 */
-function toParsedImage(collected: CollectedImage, index: number): ParsedImage | null {
+function toParsedMedia(collected: CollectedImage, index: number, awemeSuffix: string): ParsedMedia | null {
   const { payload } = collected
 
   // 优先级：无水印原图 > 原图 > 预览图 > 缩略图
@@ -166,18 +88,16 @@ function toParsedImage(collected: CollectedImage, index: number): ParsedImage | 
   const best = raw ?? fallback
   if (!best?.url) return null
 
-  const watermarkUrl = payload.image_preview?.url ?? payload.image_thumb?.url
-  const hash = payload.key?.split('/').pop()?.replace(/\.[a-z0-9]+$/i, '') ?? ''
-  const shortHash = hash.slice(0, 8) || String(index).padStart(2, '0')
+  const thumbnail = payload.image_preview?.url ?? payload.image_thumb?.url
   const extension = raw ? 'png' : extensionFromKey(payload.key)
-  const filename = `doubao_${String(index).padStart(2, '0')}_${shortHash}.${extension}`
 
   return {
     id: payload.key ?? best.url,
     index,
-    filename,
+    filename: `doubao_${String(index).padStart(2, '0')}_${awemeSuffix}.${extension}`,
+    type: 'image',
     url: best.url,
-    watermarkUrl,
+    thumbnailUrl: thumbnail,
     width: best.width,
     height: best.height,
     watermarkFree: Boolean(raw),
@@ -202,32 +122,61 @@ export const doubaoAdapter: PlatformAdapter = {
   async parse(url): Promise<ParseResult> {
     const html = await fetchHtml(url.href, { referer: 'https://www.doubao.com/' })
 
-    const extracted: ExtractResult[] = extractEmbeddedPayloads(html).map(extractFromPayload)
+    // 收集所有图片对象 + 分享元信息
+    const collected: CollectedImage[] = []
+    let title: string | undefined
+    let author: string | undefined
+
+    for (const payload of extractEmbeddedPayloads(html)) {
+      forEachNode(payload, (node) => {
+        if (!title) {
+          const shareInfo = node.share_info as { share_name?: unknown, user?: { nick_name?: unknown } } | undefined
+          if (shareInfo && typeof shareInfo === 'object') {
+            if (typeof shareInfo.share_name === 'string') title = shareInfo.share_name
+            const nickName = shareInfo.user?.nick_name
+            if (typeof nickName === 'string') author = nickName
+          }
+        }
+
+        const genParams = node.gen_params as { prompt?: unknown } | undefined
+        const prompt = typeof genParams?.prompt === 'string' ? genParams.prompt : undefined
+
+        // 形如 { image: {...}, gen_params: {...} } 的 creation 节点
+        if (isImagePayload(node.image)) {
+          collected.push({ payload: node.image, prompt })
+          return
+        }
+        // 直接就是图片对象的节点
+        if (isImagePayload(node)) {
+          collected.push({ payload: node, prompt })
+        }
+      })
+    }
 
     // 同一张图可能在多份数据里重复出现，按图片 key 去重
     const seen = new Set<string>()
-    const images: ParsedImage[] = []
-    for (const item of extracted.flatMap(entry => entry.images)) {
+    const media: ParsedMedia[] = []
+    for (const item of collected) {
       const id = item.payload.key ?? item.payload.image_ori_raw?.url ?? ''
       if (id && seen.has(id)) continue
       if (id) seen.add(id)
 
-      const image = toParsedImage(item, images.length + 1)
-      if (image) images.push(image)
+      const hash = item.payload.key?.split('/').pop()?.replace(/\.[a-z0-9]+$/i, '') ?? ''
+      const suffix = hash.slice(0, 8) || String(media.length + 1).padStart(2, '0')
+      const parsed = toParsedMedia(item, media.length + 1, suffix)
+      if (parsed) media.push(parsed)
     }
 
-    if (!images.length) {
-      throw new ParseError('NO_IMAGES', '该分享里没有解析到图片，请确认链接内容包含 AI 生成的图片')
+    if (!media.length) {
+      throw new ParseError('NO_MEDIA', '该分享里没有解析到图片，请确认链接内容包含 AI 生成的图片')
     }
-
-    const meta = extracted.find(entry => entry.title || entry.author)
 
     return {
       platform: { id: this.id, name: this.name, example: this.example },
       sourceUrl: url.href,
-      title: meta?.title,
-      author: meta?.author,
-      images,
+      title,
+      author,
+      media,
       parsedAt: new Date().toISOString()
     }
   }

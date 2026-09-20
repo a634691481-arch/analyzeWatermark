@@ -32,7 +32,7 @@ const example = computed(() => props.platforms[0]?.example ?? '')
         class="flex-1"
         size="xl"
         icon="i-lucide-link"
-        placeholder="粘贴分享链接，例如 https://www.doubao.com/thread/xxxx"
+        placeholder="粘贴分享链接或整段分享文案（豆包 / 抖音 / 小红书）"
         :disabled="loading"
         :ui="{ base: 'w-full' }"
       />
@@ -43,7 +43,7 @@ const example = computed(() => props.platforms[0]?.example ?? '')
         icon="i-lucide-sparkles"
         :loading="loading"
         :disabled="!url.trim()"
-        label="解析图片"
+        label="解析"
       />
     </div>
 

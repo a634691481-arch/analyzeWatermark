@@ -9,7 +9,7 @@ export function triggerDownload(href: string, filename?: string) {
   link.remove()
 }
 
-/** 生成图片代理地址（预览或下载） */
+/** 生成资源代理地址（预览或下载） */
 export function proxyUrl(target: string, options: { download?: boolean, name?: string } = {}): string {
   const params = new URLSearchParams({ url: target })
   if (options.download) params.set('download', '1')

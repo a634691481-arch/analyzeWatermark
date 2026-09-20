@@ -1,4 +1,4 @@
-import type { ParsedImage, ParseResponse, ParseResult } from '#shared/types'
+import type { ParsedMedia, ParseResponse, ParseResult } from '#shared/types'
 
 /** 把 $fetch / fetch 的各种错误形态压成一句人话 */
 function extractMessage(error: unknown): string {
@@ -16,20 +16,19 @@ function extractMessage(error: unknown): string {
   return '解析失败，请检查链接后重试'
 }
 
-export function useImageParser() {
-  const inputUrl = ref('')
+export function useMediaParser() {  const inputUrl = ref('')
   const loading = ref(false)
   const zipping = ref(false)
   const errorMessage = ref('')
   const result = ref<ParseResult | null>(null)
   const selectedIds = ref<string[]>([])
 
-  const images = computed(() => result.value?.images ?? [])
-  const selectedImages = computed(() => images.value.filter(image => selectedIds.value.includes(image.id)))
-  const allSelected = computed(() => images.value.length > 0 && selectedIds.value.length === images.value.length)
-  const watermarkFreeCount = computed(() => images.value.filter(image => image.watermarkFree).length)
+  const media = computed(() => result.value?.media ?? [])
+  const selectedMedia = computed(() => media.value.filter(item => selectedIds.value.includes(item.id)))
+  const allSelected = computed(() => media.value.length > 0 && selectedIds.value.length === media.value.length)
+  const watermarkFreeCount = computed(() => media.value.filter(item => item.watermarkFree).length)
 
-  /** 解析成功后返回结果，便于调用方写入历史记录 */
+  /** 解析成功后返回结果，便于调用方做后续处理 */
   async function parse(): Promise<ParseResult | null> {
     if (loading.value) return null
     loading.value = true
@@ -43,7 +42,7 @@ export function useImageParser() {
 
       if (response.ok) {
         result.value = response.data
-        selectedIds.value = response.data.images.map(image => image.id)
+        selectedIds.value = response.data.media.map(item => item.id)
         return response.data
       }
 
@@ -70,23 +69,33 @@ export function useImageParser() {
   }
 
   function toggleAll() {
-    selectedIds.value = allSelected.value ? [] : images.value.map(image => image.id)
+    selectedIds.value = allSelected.value ? [] : media.value.map(item => item.id)
   }
 
-  /** 单张下载：走服务端代理，避免防盗链与跨域下载失效 */
-  function downloadOne(image: ParsedImage) {
-    triggerDownload(proxyUrl(image.url, { download: true, name: image.filename }), image.filename)
+  /** 单条下载：走服务端代理，避免防盗链与跨域下载失效（视频尤其需要） */
+  function downloadOne(item: ParsedMedia) {
+    triggerDownload(proxyUrl(item.url, { download: true, name: item.filename }), item.filename)
+  }
+
+  /**
+   * 下载源文件（可选）。
+   * 主地址一般是转码后的兼容格式，源文件可能是 HEIC 这类不通用格式，所以单独走一枚按钮。
+   */
+  function downloadOriginal(item: ParsedMedia) {
+    if (!item.originalUrl) return
+    const name = item.filename.replace(/\.[a-z0-9]+$/i, '.heic')
+    triggerDownload(proxyUrl(item.originalUrl, { download: true, name }), name)
   }
 
   /** 批量下载：服务端打成一个 zip 返回 */
-  async function downloadZip(list: ParsedImage[]) {
+  async function downloadZip(list: ParsedMedia[]) {
     if (!list.length || zipping.value) return
     zipping.value = true
     errorMessage.value = ''
 
-    const platformId = result.value?.platform.id ?? 'images'
+    const platformId = result.value?.platform.id ?? 'media'
     const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-    const zipName = `${platformId}-images-${stamp}.zip`
+    const zipName = `${platformId}-${stamp}.zip`
 
     try {
       const response = await fetch('/api/zip', {
@@ -94,7 +103,7 @@ export function useImageParser() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           filename: zipName,
-          files: list.map(image => ({ url: image.url, filename: image.filename }))
+          files: list.map(item => ({ url: item.url, filename: item.filename }))
         })
       })
 
@@ -123,28 +132,14 @@ export function useImageParser() {
     }
   }
 
-  async function copyLink(image: ParsedImage): Promise<boolean> {
+  async function copyLink(item: ParsedMedia): Promise<boolean> {
     try {
-      await navigator.clipboard.writeText(image.url)
+      await navigator.clipboard.writeText(item.url)
       return true
     }
     catch {
       return false
     }
-  }
-
-  /** 用已有结果直接恢复界面（历史记录点击） */
-  function restore(value: ParseResult) {
-    result.value = value
-    selectedIds.value = value.images.map(image => image.id)
-    errorMessage.value = ''
-  }
-
-  function reset() {
-    inputUrl.value = ''
-    result.value = null
-    selectedIds.value = []
-    errorMessage.value = ''
   }
 
   return {
@@ -153,18 +148,17 @@ export function useImageParser() {
     zipping,
     errorMessage,
     result,
-    images,
+    media,
     selectedIds,
-    selectedImages,
+    selectedMedia,
     allSelected,
     watermarkFreeCount,
     parse,
-    restore,
     toggle,
     toggleAll,
     downloadOne,
+    downloadOriginal,
     downloadZip,
-    copyLink,
-    reset
+    copyLink
   }
 }
