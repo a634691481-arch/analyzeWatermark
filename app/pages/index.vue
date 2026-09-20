@@ -68,9 +68,53 @@ const steps = [
   }
 ]
 
-useHead({
-  title: 'AI 生图 / 短视频去水印 · 一键解析无水印原片'
+useSeoMeta({
+  title: '无水印下载工具 · 一键取回原始文件',
+  description: '粘贴豆包 / 抖音 / 小红书 / 千问的分享链接，自动解析出云端保存的无水印原图与原视频，支持单图下载与批量打包，无需安装插件。',
+  ogTitle: '无水印下载工具 · 一键取回原始文件',
+  ogDescription: '支持豆包、抖音、小红书、千问。粘贴分享文案即可取回未压缩的无水印原图与原视频。',
+  ogType: 'website',
+  ogSiteName: '去水印',
+  ogLocale: 'zh_CN',
+  twitterCard: 'summary_large_image',
+  twitterTitle: '无水印下载工具 · 一键取回原始文件',
+  twitterDescription: '粘贴分享文案，取回未压缩的无水印原图与原视频。'
 })
+
+// keywords 不在 useSeoMeta 的类型里，单独挂
+useHead({
+  meta: [
+    {
+      name: 'keywords',
+      content: '去水印,无水印下载,豆包去水印,抖音去水印,小红书去水印,千问去水印,图片下载,视频下载'
+    }
+  ]
+})
+
+/** 结构化数据：让搜索引擎知道这是个 Web 工具，而不是一篇内容页 */
+useSchemaOrg([
+  defineWebSite({
+    name: '去水印',
+    inLanguage: 'zh-CN'
+  }),
+  defineSoftwareApp({
+    name: '无水印下载工具',
+    applicationCategory: 'MultimediaApplication',
+    operatingSystem: 'Web',
+    description: '解析豆包 / 抖音 / 小红书 / 千问的分享链接，取回无水印原图与原视频。',
+    offers: {
+      price: '0',
+      priceCurrency: 'CNY'
+    },
+    featureList: [
+      '豆包 AI 生图无水印原图',
+      '抖音视频与图集无水印下载',
+      '小红书图文原图下载',
+      '千问生成图片与视频无水印下载',
+      '批量打包 zip 下载'
+    ]
+  })
+])
 </script>
 
 <template>
@@ -191,6 +235,8 @@ useHead({
           若作者上传时就只有带水印版本，卡片会标注「仅水印版」。
         </p>
       </section>
+
+      <ContactAuthor />
 
       <BackToTop />
 
