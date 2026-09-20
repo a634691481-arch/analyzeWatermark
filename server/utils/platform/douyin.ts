@@ -220,6 +220,8 @@ export const douyinAdapter: PlatformAdapter = {
   id: 'douyin',
   name: '抖音',
   example: 'https://v.douyin.com/xxxxxxxx/',
+  // 抖音与 TikTok 同源，simple-icons 只有后者
+  icon: 'i-simple-icons-tiktok',
 
   match(url) {
     if (SHORT_HOST.test(url.hostname)) return true

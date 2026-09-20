@@ -10,6 +10,9 @@
 | 抖音 | ✅ | ✅ | 视频 `playwm`→`play`；图片 `url_list` |
 | 小红书 | ⚠️ 未验证 | ✅ | `nd_dft_*` 模板（`h5_*` 带水印） |
 | 千问 | ✅ | ✅ | `display_list` 的 `image` / `video` 字段 |
+| 哔哩哔哩 | ✅ | — | `playurl` 的 `durl`（音视频合一单文件），含分P |
+| 快手 | ✅ | ✅（图集） | SSR `INIT_STATE` 的 `photo.mainMvUrls[0].url`（前端字段名即 `srcNoMark`）；图集走 `photo.atlas` |
+| 微博 | ✅ | — | 组件接口 `Component_Play_Playinfo.urls` / 正文接口 `page_info.media_info`（访客 Cookie） |
 
 ## 快速开始
 
@@ -35,6 +38,10 @@ AI 生图与短视频平台在 CDN 上通常同时保存两份文件：一份是
 | 小红书图片 | `!h5_1080jpg` / `!h5_1080webp` | `!nd_dft_*` 模板，或 `{fileId}` 源文件 |
 | 千问图片 | `watermark_image[]` | `image[]` |
 | 千问视频 | `download_video[]` | `video[]` |
+| 哔哩哔哩视频 | 平台不烧角标 | `playurl` 的 `durl[]`（`fnval=0`） |
+| 快手视频 | App 端另做水印，不在 H5 流里 | `photo.mainMvUrls[0].url`（前端字段名就是 `srcNoMark`） |
+| 快手图集 | — | `photo.atlas.cdnList[0].cdn` + `list[]` |
+| 微博视频 | 播放器 UI 角标，不在流里 | 微博只下发一份文件；`Component_Play_Playinfo.urls` / `page_info.media_info` |
 
 ## 数据流
 
@@ -74,6 +81,9 @@ server/
       douyin.ts          抖音
       xiaohongshu.ts     小红书
       qianwen.ts         千问
+      bilibili.ts        哔哩哔哩
+      kuaishou.ts        快手
+      weibo.ts           微博
     http.ts              HTML 抓取 / 实体解码 / SSR 字面量提取
     json-walk.ts         通用 JSON 深度遍历（自动解包嵌套 JSON 字符串）
     security.ts          域名白名单（SSRF 防护）、UA、文件名清洗
@@ -138,8 +148,10 @@ export const xxxAdapter: PlatformAdapter = {
   `experiments/xiaohongshu/NOTES.md`）。
 - **源文件另开一栏**：主下载地址优先选通用格式（JPEG/MP4）；像小红书原图是
   iPhone HEIC 这种不通用格式，用 `originalUrl` 单独挂一枚按钮由用户自选。
-- **代理层保持平台无关**：所有资源都不需要 Referer，代理只做「白名单校验 +
-  补 UA + attachment 响应」，不掺平台逻辑。
+- **代理层保持平台无关**：代理只做「白名单校验 + 补 UA + attachment 响应」。
+  唯一的例外是 Referer：极少数 CDN 会校验它（B 站的 `bilivideo` 不带就 403），
+  所以 `server/utils/security.ts` 里有 `refererForHost()` 做**按域名的精确规则**，
+  而不是一律带 referer。
 
 ## 说明
 

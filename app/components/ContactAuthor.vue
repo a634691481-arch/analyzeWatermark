@@ -82,7 +82,7 @@ async function submit() {
             v-model="content"
             class="w-full"
             :rows="4"
-            placeholder="例如：想支持 B 站视频、快手，或某个具体链接解析失败"
+            placeholder="例如：想支持视频号、TikTok，或某个具体链接解析失败"
             :disabled="submitting"
           />
         </UFormField>

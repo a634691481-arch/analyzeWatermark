@@ -27,6 +27,15 @@ const { data: platforms } = await useFetch<PlatformInfo[]>('/api/platforms', {
   default: () => [] as PlatformInfo[]
 })
 
+/** 已适配平台名，用于标题与文案，避免每加一个平台就要手改文案 */
+const platformNames = computed(() => platforms.value.map(platform => platform.name))
+/** 顿号连接：豆包、抖音、小红书 */
+const platformList = computed(() => platformNames.value.join('、'))
+/** 斜杠连接：豆包 / 抖音 / 小红书 */
+const platformSlash = computed(() => platformNames.value.join(' / '))
+const platformKeywords = computed(() => platformNames.value.map(name => `${name}去水印`).join(','))
+const platformFeatures = computed(() => platformNames.value.map(name => `${name}无水印下载`))
+
 /** 放大预览：null 表示关闭，否则是 media 数组下标 */
 const previewIndex = ref<number | null>(null)
 
@@ -70,9 +79,9 @@ const steps = [
 
 useSeoMeta({
   title: '无水印下载工具 · 一键取回原始文件',
-  description: '粘贴豆包 / 抖音 / 小红书 / 千问的分享链接，自动解析出云端保存的无水印原图与原视频，支持单图下载与批量打包，无需安装插件。',
+  description: () => `粘贴 ${platformSlash.value} 的分享链接，自动解析出云端保存的无水印原图与原视频，支持单个下载与批量打包，无需安装插件。`,
   ogTitle: '无水印下载工具 · 一键取回原始文件',
-  ogDescription: '支持豆包、抖音、小红书、千问。粘贴分享文案即可取回未压缩的无水印原图与原视频。',
+  ogDescription: () => `支持${platformList.value}。粘贴分享文案即可取回未压缩的无水印原图与原视频。`,
   ogType: 'website',
   ogSiteName: '去水印',
   ogLocale: 'zh_CN',
@@ -86,7 +95,7 @@ useHead({
   meta: [
     {
       name: 'keywords',
-      content: '去水印,无水印下载,豆包去水印,抖音去水印,小红书去水印,千问去水印,图片下载,视频下载'
+      content: () => `去水印,无水印下载,${platformKeywords.value},图片下载,视频下载`
     }
   ]
 })
@@ -101,18 +110,12 @@ useSchemaOrg([
     name: '无水印下载工具',
     applicationCategory: 'MultimediaApplication',
     operatingSystem: 'Web',
-    description: '解析豆包 / 抖音 / 小红书 / 千问的分享链接，取回无水印原图与原视频。',
+    description: `解析${platformList.value}的分享链接，取回无水印原图与原视频。`,
     offers: {
       price: '0',
       priceCurrency: 'CNY'
     },
-    featureList: [
-      '豆包 AI 生图无水印原图',
-      '抖音视频与图集无水印下载',
-      '小红书图文原图下载',
-      '千问生成图片与视频无水印下载',
-      '批量打包 zip 下载'
-    ]
+    featureList: [...platformFeatures.value, '批量打包 zip 下载']
   })
 ])
 </script>
@@ -126,7 +129,7 @@ useSchemaOrg([
           variant="subtle"
           size="sm"
           icon="i-lucide-image-down"
-          label="无水印下载工具"
+          :label="`已适配 ${platformNames.length} 个平台`"
         />
         <h1 class="mt-4 text-3xl font-bold tracking-tight text-highlighted sm:text-4xl">
           一键解析无水印原片
@@ -135,12 +138,28 @@ useSchemaOrg([
           粘贴分享链接，自动提取云端保存的<b class="text-highlighted">无水印原图 / 原视频</b>，
           支持单个下载与批量打包，无需安装任何插件。
         </p>
+
+        <!-- 已适配平台：数据来自 /api/platforms，新增平台自动跟着变 -->
+        <ul class="mt-7 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+          <li v-for="platform in platforms" :key="platform.id">
+            <span
+              class="group inline-flex items-center gap-2 rounded-full bg-elevated px-3.5 py-2 text-xs ring ring-default transition-colors duration-300 hover:ring-primary/50"
+              :title="platform.example"
+            >
+              <UIcon
+                v-if="platform.icon"
+                :name="platform.icon"
+                class="size-4 shrink-0 text-muted transition-colors duration-300 group-hover:text-primary"
+              />
+              <span class="font-medium text-toned">{{ platform.name }}</span>
+            </span>
+          </li>
+        </ul>
       </header>
 
       <ParseForm
         v-model="inputUrl"
         :loading="loading"
-        :platforms="platforms"
         @submit="parse"
       />
 

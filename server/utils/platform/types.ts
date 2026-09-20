@@ -15,9 +15,11 @@ export interface PlatformAdapter {
   name: string
   /** 分享链接示例，用于前端提示 */
   example: string
+  /** 平台图标（Iconify 名称），页面上展示已适配平台时用 */
+  icon?: string
   /** 判断这条链接是否交给本适配器处理 */
   match(url: URL): boolean
-  /** 解析分享链接，产出归一化后的图片列表 */
+  /** 解析分享链接，产出归一化后的媒体列表 */
   parse(url: URL): Promise<ParseResult>
 }
 

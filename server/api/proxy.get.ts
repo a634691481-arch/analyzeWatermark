@@ -1,4 +1,4 @@
-import { BROWSER_UA, isAllowedMediaUrl, sanitizeFilename } from '../utils/security'
+import { BROWSER_UA, isAllowedMediaUrl, refererForHost, sanitizeFilename } from '../utils/security'
 
 /**
  * GET /api/proxy?url=<资源地址>&download=1&name=<文件名>
@@ -29,6 +29,10 @@ export default defineEventHandler(async (event) => {
   const range = getRequestHeader(event, 'range')
 
   const upstreamHeaders: Record<string, string> = { 'user-agent': BROWSER_UA }
+  // 个别 CDN（如 B 站 bilivideo）校验 Referer，缺了会 403
+  const referer = refererForHost(new URL(target).hostname)
+  if (referer) upstreamHeaders.referer = referer
+  // 下载时不要带上浏览器的 Range，整段拿才能正确写 attachment
   if (range && !asAttachment) upstreamHeaders.range = range
 
   let upstream: Response

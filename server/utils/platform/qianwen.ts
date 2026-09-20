@@ -194,6 +194,7 @@ export const qianwenAdapter: PlatformAdapter = {
   id: 'qianwen',
   name: '千问',
   example: 'https://qianwen.my.cn/share/chat/xxxxxxxx',
+  icon: 'i-simple-icons-qwen',
 
   match(url) {
     return SHARE_HOST.test(url.hostname) && SHARE_PATH.test(url.pathname)

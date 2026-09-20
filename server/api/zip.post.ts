@@ -1,5 +1,5 @@
 ﻿import type { ZipFile } from '../utils/zip'
-import { BROWSER_UA, isAllowedMediaUrl, sanitizeFilename } from '../utils/security'
+import { BROWSER_UA, isAllowedMediaUrl, refererForHost, sanitizeFilename } from '../utils/security'
 import { createZip } from '../utils/zip'
 
 /** 单次打包上限：文件数 与 总字节数，避免把内存打爆 */
@@ -40,8 +40,13 @@ export default defineEventHandler(async (event) => {
   for (const [position, file] of files.entries()) {
     let response: Response
     try {
+      const target = new URL(file.url!)
+      const headers: Record<string, string> = { 'user-agent': BROWSER_UA }
+      const referer = refererForHost(target.hostname)
+      if (referer) headers.referer = referer
+
       response = await fetch(file.url!, {
-        headers: { 'user-agent': BROWSER_UA },
+        headers,
         redirect: 'follow',
         signal: AbortSignal.timeout(120_000)
       })

@@ -26,7 +26,7 @@ export default defineNuxtConfig({
   site: {
     url: process.env.NUXT_SITE_URL || 'http://localhost:3000',
     name: '去水印',
-    description: '粘贴分享链接，一键取回豆包 / 抖音 / 小红书 / 千问的无水印原图与原视频，支持批量打包下载。',
+    description: '粘贴分享链接，一键取回多平台的无水印原图与原视频，支持批量打包下载。',
     defaultLocale: 'zh-CN'
   },
 
@@ -59,7 +59,23 @@ export default defineNuxtConfig({
 
   // 图标使用本地安装的 @iconify-json 集合，不依赖 Iconify 在线 API
   icon: {
-    serverBundle: 'local'
+    serverBundle: 'local',
+    clientBundle: {
+      /**
+       * 平台图标来自 /api/platforms 的接口数据（写在 server 的适配器里），
+       * 扫描器看不到这些动态字符串，所以必须显式列出来打进客户端包，
+       * 否则首屏会闪一下再补上。
+       */
+      icons: [
+        'lucide:bot',
+        'simple-icons:tiktok',
+        'simple-icons:xiaohongshu',
+        'simple-icons:qwen',
+        'simple-icons:bilibili',
+        'simple-icons:kuaishou',
+        'simple-icons:sinaweibo'
+      ]
+    }
   },
 
   // 国内网络访问不到 Google Fonts（本项目实测 10s 超时），直接关闭对应 provider，

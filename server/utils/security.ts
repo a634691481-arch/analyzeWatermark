@@ -31,7 +31,25 @@ export const ALLOWED_MEDIA_HOSTS = [
   // 千问
   'qianwen.com',
   'qianwen.my.cn',
-  'quark.cn'
+  'quark.cn',
+  // 哔哩哔哩
+  'bilibili.com',
+  'b23.tv',
+  'bilivideo.com',
+  'bilivideo.cn',
+  'hdslb.com',
+  // 微博
+  'weibo.com',
+  'weibo.cn',
+  'weibocdn.com',
+  'sinaimg.cn',
+  // 快手
+  'kuaishou.com',
+  'chenzhongtech.com',
+  'gifshow.com',
+  'yximgs.com',
+  'kwimgs.com',
+  'kwaicdn.com'
 ]
 
 export function isAllowedMediaUrl(raw: string): boolean {
@@ -47,6 +65,23 @@ export function isAllowedMediaUrl(raw: string): boolean {
     host => url.hostname === host || url.hostname.endsWith(`.${host}`)
   )
 }
+
+/**
+ * 少数 CDN 会校验 Referer，缺了直接 403（B 站的 bilivideo 就是这样）。
+ * 这里用精确的域名规则，而不是「一律带 referer」，
+ * 免得把代理变成通用的带 referer 转发器。
+ */
+const REFERER_RULES: [RegExp, string][] = [
+  [/(^|\.)(bilivideo\.(com|cn)|hdslb\.com|bilibili\.com)$/i, 'https://www.bilibili.com/'],
+  // 微博图床/视频 CDN 不带 Referer 直接 403
+  [/(^|\.)(weibocdn\.com|sinaimg\.cn|weibo\.com|weibo\.cn)$/i, 'https://weibo.com/']
+]
+
+/** 返回该资源域名需要的 Referer；不需要则返回 undefined */
+export function refererForHost(hostname: string): string | undefined {
+  return REFERER_RULES.find(([pattern]) => pattern.test(hostname))?.[1]
+}
+
 
 /** 去掉路径穿越与非法字符，保证 Content-Disposition 里的文件名安全 */
 export function sanitizeFilename(name: string, fallback = 'media'): string {

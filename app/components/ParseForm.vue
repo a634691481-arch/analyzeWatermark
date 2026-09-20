@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import type { PlatformInfo } from '#shared/types'
-
 const props = defineProps<{
   modelValue: string
   loading?: boolean
-  platforms: PlatformInfo[]
 }>()
 
 const emit = defineEmits<{
@@ -16,9 +13,6 @@ const url = computed({
   get: () => props.modelValue,
   set: value => emit('update:modelValue', value)
 })
-
-const names = computed(() => props.platforms.map(item => item.name).join(' / '))
-const example = computed(() => props.platforms[0]?.example ?? '')
 
 const contactOpen = useState('contact-dialog-open', () => false)
 </script>
@@ -34,7 +28,7 @@ const contactOpen = useState('contact-dialog-open', () => false)
         class="flex-1"
         size="xl"
         icon="i-lucide-link"
-        placeholder="粘贴分享链接或整段分享文案（豆包 / 抖音 / 小红书）"
+        placeholder="粘贴分享链接或整段分享文案"
         :disabled="loading"
         :ui="{ base: 'w-full' }"
       />
@@ -49,9 +43,7 @@ const contactOpen = useState('contact-dialog-open', () => false)
       />
     </div>
 
-    <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs text-dimmed">
-      <span>已支持：{{ names || '—' }}</span>
-      <span v-if="example" class="hidden sm:inline">示例：{{ example }}</span>
+    <div class="mt-3 px-1 text-xs">
       <button
         type="button"
         class="inline-flex items-center gap-1 text-primary hover:underline"

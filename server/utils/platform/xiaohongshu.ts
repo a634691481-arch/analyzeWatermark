@@ -187,6 +187,7 @@ export const xiaohongshuAdapter: PlatformAdapter = {
   id: 'xiaohongshu',
   name: '小红书',
   example: 'https://xhslink.cn/o/xxxxxxxx',
+  icon: 'i-simple-icons-xiaohongshu',
 
   match(url) {
     if (SHORT_HOST.test(url.hostname)) return true

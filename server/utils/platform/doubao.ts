@@ -114,6 +114,8 @@ export const doubaoAdapter: PlatformAdapter = {
   id: 'doubao',
   name: '豆包',
   example: 'https://www.doubao.com/thread/xxxxxxxxxxxx',
+  // 豆包没有现成的品牌图标，用线稿机器人（lucide:bot）
+  icon: 'i-lucide-bot',
 
   match(url) {
     return /(^|\.)doubao\.com$/i.test(url.hostname) && THREAD_PATH.test(url.pathname)

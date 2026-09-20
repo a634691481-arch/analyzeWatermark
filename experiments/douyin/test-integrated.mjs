@@ -9,7 +9,10 @@ const CASES = [
   { name: '抖音视频', url: 'https://v.douyin.com/PJIP6J56t8Y/', platform: 'douyin', type: 'video', count: 1, expectOriginal: false },
   { name: '抖音图文', url: 'https://v.douyin.com/lZGNcAGUqsY/', platform: 'douyin', type: 'image', count: 16, expectOriginal: false },
   { name: '小红书图文', url: 'https://xhslink.cn/o/3iRd5juLzyP', platform: 'xiaohongshu', type: 'image', count: 5, expectOriginal: true },
-  { name: '千问图文+视频', url: 'https://qianwen.my.cn/share/chat/58c5c60a43164ccfbf6bb76715be1ba3', platform: 'qianwen', type: 'image', count: 2, expectOriginal: false }
+  { name: '千问图文+视频', url: 'https://qianwen.my.cn/share/chat/58c5c60a43164ccfbf6bb76715be1ba3', platform: 'qianwen', type: 'image', count: 2, expectOriginal: false },
+  { name: 'B站视频', url: 'https://b23.tv/BV1uDe16vE51', platform: 'bilibili', type: 'video', count: 1, expectOriginal: false },
+  { name: '微博视频', url: 'https://video.weibo.com/show?fid=1034:5342648219926608', platform: 'weibo', type: 'video', count: 1, expectOriginal: false },
+  { name: '快手视频', url: 'https://v.kuaishou.com/K23oc0R9', platform: 'kuaishou', type: 'video', count: 1, expectOriginal: false }
 ]
 
 let failures = 0
@@ -21,7 +24,7 @@ const check = (label, condition, detail = '') => {
 console.log('=== 平台清单 ===')
 const platforms = await (await fetch(`${BASE}/api/platforms`)).json()
 console.log('  ', platforms.map(item => `${item.id}(${item.name})`).join(', '))
-check('注册了 4 个平台', platforms.length === 4)
+check('注册了 7 个平台', platforms.length === 7)
 
 const parsed = []
 for (const testCase of CASES) {

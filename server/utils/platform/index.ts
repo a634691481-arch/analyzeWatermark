@@ -1,9 +1,12 @@
 import type { PlatformInfo } from '#shared/types'
 import type { PlatformAdapter } from './types'
 import { ParseError } from '../errors'
+import { bilibiliAdapter } from './bilibili'
 import { doubaoAdapter } from './doubao'
 import { douyinAdapter } from './douyin'
+import { kuaishouAdapter } from './kuaishou'
 import { qianwenAdapter } from './qianwen'
+import { weiboAdapter } from './weibo'
 import { xiaohongshuAdapter } from './xiaohongshu'
 
 /** 已接入的平台。新增平台时在这里注册即可 */
@@ -11,14 +14,18 @@ export const platformAdapters: PlatformAdapter[] = [
   doubaoAdapter,
   douyinAdapter,
   xiaohongshuAdapter,
-  qianwenAdapter
+  qianwenAdapter,
+  bilibiliAdapter,
+  kuaishouAdapter,
+  weiboAdapter
 ]
 
 export function supportedPlatforms(): PlatformInfo[] {
   return platformAdapters.map(adapter => ({
     id: adapter.id,
     name: adapter.name,
-    example: adapter.example
+    example: adapter.example,
+    icon: adapter.icon
   }))
 }
 
