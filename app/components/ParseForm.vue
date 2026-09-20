@@ -19,6 +19,8 @@ const url = computed({
 
 const names = computed(() => props.platforms.map(item => item.name).join(' / '))
 const example = computed(() => props.platforms[0]?.example ?? '')
+
+const contactOpen = useState('contact-dialog-open', () => false)
 </script>
 
 <template>
@@ -50,6 +52,14 @@ const example = computed(() => props.platforms[0]?.example ?? '')
     <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs text-dimmed">
       <span>已支持：{{ names || '—' }}</span>
       <span v-if="example" class="hidden sm:inline">示例：{{ example }}</span>
+      <button
+        type="button"
+        class="inline-flex items-center gap-1 text-primary hover:underline"
+        @click="contactOpen = true"
+      >
+        没找到想用的平台？联系作者适配
+        <UIcon name="i-lucide-message-square-plus" class="size-3.5" />
+      </button>
     </div>
   </form>
 </template>
