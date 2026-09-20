@@ -153,6 +153,73 @@ export const xxxAdapter: PlatformAdapter = {
   所以 `server/utils/security.ts` 里有 `refererForHost()` 做**按域名的精确规则**，
   而不是一律带 referer。
 
+## PWA
+
+用官方的 [`@vite-pwa/nuxt`](https://vite-pwa-org.netlify.app/frameworks/nuxt)，目标是
+**可安装 + 静态资源离线可用**。
+
+| 能力 | 实现 |
+| --- | --- |
+| 可安装 | `manifest.webmanifest` + 192/512/maskable 图标 + `display: standalone` |
+| 离线外壳 | Workbox 预缓存 24 项（JS/CSS/图标/manifest） |
+| 自动更新 | `registerType: 'autoUpdate'` + 每小时检查 |
+| iOS | `apple-touch-icon` + `apple-mobile-web-app-*` meta |
+
+### ⚠️ 必须显式写 `navigateFallback: null`
+
+`@vite-pwa/nuxt` 的逻辑是「**只要 `workbox` 里没有 `navigateFallback` 这个 key，
+就自动塞 `nuxt.options.app.baseURL`（即 `/`）**」，于是生成：
+
+```js
+registerRoute(new NavigationRoute(createHandlerBoundToURL("/")))
+```
+
+后果很严重：这条规则注册在**所有规则之前**、劫持全部导航，而它的 handler 绑定的是
+预缓存里的 `/` —— 本项目是 SSR，构建产物里根本没有静态 HTML。结果就是整站导航
+全部失效。`.output/public/sw.js` 里出现 `NavigationRoute` 就是中招了。
+
+显式传 `null`（key 存在但为假）workbox 就会跳过，导航交给我们自己配的
+`NetworkFirst` 规则（并排除 `/api/**`、`/__sitemap__/**`）。
+
+### 缓存策略
+
+```
+导航（非 /api）      NetworkFirst，4s 超时，回落 pages 缓存
+/_nuxt/*.js|css|字体 CacheFirst，30 天
+图片                 CacheFirst，30 天
+```
+
+**刻意不缓存解析出来的媒体**：代理出的原图动辄 6MB+，缓存会瞬间撑爆配额，
+而且 `/api/proxy` 还要支持 Range 请求。
+
+### 图标
+
+生成源是 `experiments/pwa/icon-source.html`（可用 `?pad=0.5~0.64` 调留白）：
+
+```
+public/pwa-192x192.png            192×192
+public/pwa-512x512.png            512×512
+public/maskable-icon-512x512.png  512×512（20% 安全留白，避免被裁）
+public/apple-touch-icon.png       180×180
+```
+
+用浏览器按目标尺寸渲染后截图即可重新生成。
+
+### 验证
+
+```bash
+NODE_ENV=production node .output/server/index.mjs
+node experiments/pwa/verify-pwa.mjs
+
+# 另外务必确认 sw.js 里没有 NavigationRoute（有就是踩了上面的坑）
+node -e "console.log(require('fs').readFileSync('.output/public/sw.js','utf8').includes('NavigationRoute'))"
+```
+
+> 目前没做「安装到桌面」的按钮，浏览器自带的安装入口（地址栏图标 /
+> 添加到主屏幕）就能装。要自定义按钮的话，模块已经通过
+> `client.installPrompt: true` 暴露了 `$pwa.showInstallPrompt()`，
+> 加一个小按钮调用即可。
+
 ## 说明
 
 - 解析的是平台云端已存在的原始文件，不是对带水印素材做修补。

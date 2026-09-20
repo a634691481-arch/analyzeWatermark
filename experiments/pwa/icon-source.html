@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    /* 主色与站点 primary（emerald）一致 */
+    background: linear-gradient(145deg, #10b981 0%, #059669 52%, #0f766e 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  /* 顶部柔光，让图标有体积感 */
+  .sheen {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(70% 55% at 22% 8%, rgba(255,255,255,0.30), transparent 62%),
+      radial-gradient(60% 50% at 92% 104%, rgba(0,0,0,0.16), transparent 60%);
+  }
+  svg { position: relative; display: block; }
+</style>
+</head>
+<body>
+  <div class="sheen"></div>
+  <!-- 下载箭头 + 托盘：小尺寸下依然清晰 -->
+  <svg id="glyph" viewBox="0 0 100 100" fill="none" stroke="#ffffff"
+       stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M50 16 V60" />
+    <path d="M31 43 L50 62 L69 43" />
+    <path d="M20 76 H80" />
+    <path d="M20 88 H80" opacity="0.62" />
+  </svg>
+  <script>
+    // 用 pad 控制图标在画布中的占比（maskable 需要更大留白）
+    const pad = Number(new URLSearchParams(location.search).get('pad') || 0.62)
+    const size = Math.min(window.innerWidth, window.innerHeight) * pad
+    const svg = document.getElementById('glyph')
+    svg.style.width = size + 'px'
+    svg.style.height = size + 'px'
+  </script>
+</body>
+</html>
