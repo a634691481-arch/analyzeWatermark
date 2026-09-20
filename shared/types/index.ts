@@ -62,6 +62,8 @@ export type ApiErrorCode =
   | 'NO_MEDIA'
   | 'BLOCKED_HOST'
   | 'BAD_REQUEST'
+  | 'RATE_LIMITED'
+  | 'PUSH_FAILED'
   | 'INTERNAL'
 
 export interface ApiError {
@@ -71,4 +73,16 @@ export interface ApiError {
 
 export type ParseResponse =
   | { ok: true, data: ParseResult }
+  | { ok: false, error: ApiError }
+
+/** 「联系作者适配」提交内容：用户自带联系方式 + 想适配的平台 */
+export interface ContactRequest {
+  /** 提交者的联系方式（手机号 / 微信号 / 邮箱） */
+  contact: string
+  /** 想适配的平台或具体需求 */
+  content: string
+}
+
+export type ContactResponse =
+  | { ok: true }
   | { ok: false, error: ApiError }
