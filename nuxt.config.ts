@@ -28,6 +28,8 @@ export default defineNuxtConfig({
        */
       htmlAttrs: { class: 'dark' },
       link: [
+        // 带版本号：图标内容换了但文件名没变，不破缓存浏览器会继续用旧图
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico?v=2' },
         { rel: 'manifest', href: '/manifest.webmanifest' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }
       ],
