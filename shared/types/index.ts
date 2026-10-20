@@ -85,6 +85,11 @@ export interface ContactRequest {
   contact: string
   /** 想适配的平台或具体需求 */
   content: string
+  /**
+   * 页面上已经填过的分享链接（可选）。
+   * 有值时弹窗会自动多出一个「相关链接」字段，方便作者直接复现解析失败。
+   */
+  url?: string
 }
 
 export type ContactResponse =

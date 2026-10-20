@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { ContactResponse } from '#shared/types'
 
+const props = defineProps<{
+  /** 页面上已经填过的分享链接；有值时弹窗自动多一个「相关链接」字段 */
+  url?: string
+}>()
+
 /** 跨组件共享开关：ParseForm 里的「联系作者适配」也能把弹框叫起来 */
 const open = useState('contact-dialog-open', () => false)
 
@@ -8,7 +13,17 @@ const toast = useToast()
 
 const contact = ref('')
 const content = ref('')
+const relatedUrl = ref('')
 const submitting = ref(false)
+
+/**
+ * 打开弹窗时把页面上的链接带进来。
+ * 页面链接在弹窗打开期间也可能变（用户又粘贴了一条），所以两个来源都监听。
+ */
+watch([open, () => props.url], ([isOpen, url]) => {
+  if (!isOpen) return
+  relatedUrl.value = (url ?? '').trim()
+}, { immediate: true })
 
 const canSubmit = computed(
   () => contact.value.trim().length > 0 && content.value.trim().length > 0
@@ -21,12 +36,17 @@ async function submit() {
   try {
     const response = await $fetch<ContactResponse>('/api/contact', {
       method: 'POST',
-      body: { contact: contact.value, content: content.value }
+      body: {
+        contact: contact.value,
+        content: content.value,
+        url: relatedUrl.value.trim() || undefined
+      }
     })
 
     if (response.ok) {
       contact.value = ''
       content.value = ''
+      relatedUrl.value = ''
       open.value = false
       toast.add({
         title: '已收到，感谢反馈',
@@ -83,6 +103,17 @@ async function submit() {
             class="w-full"
             :rows="4"
             placeholder="例如：想支持视频号、TikTok，或某个具体链接解析失败"
+            :disabled="submitting"
+          />
+        </UFormField>
+
+        <!-- 页面上填过链接才出现：作者可以直接复现，不用再问用户要 -->
+        <UFormField v-if="props.url?.trim() || relatedUrl" label="相关链接（可选）">
+          <UInput
+            v-model="relatedUrl"
+            class="w-full"
+            icon="i-lucide-link"
+            placeholder="https://..."
             :disabled="submitting"
           />
         </UFormField>

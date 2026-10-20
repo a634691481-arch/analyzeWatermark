@@ -12,6 +12,7 @@ import type { ApiErrorCode, ContactResponse } from '#shared/types'
 const PUSHPLUS_ENDPOINT = 'https://www.pushplus.plus/send'
 const MAX_CONTACT_LENGTH = 100
 const MAX_CONTENT_LENGTH = 1000
+const MAX_URL_LENGTH = 500
 
 /** 简单内存限流：同一 IP 每分钟最多提交 3 次，防止被刷 */
 const RATE_WINDOW_MS = 60_000
@@ -41,10 +42,11 @@ function fail(
 }
 
 export default defineEventHandler(async (event): Promise<ContactResponse> => {
-  const body = await readBody<{ contact?: unknown, content?: unknown }>(event).catch(() => null)
+  const body = await readBody<{ contact?: unknown, content?: unknown, url?: unknown }>(event).catch(() => null)
 
   const contact = typeof body?.contact === 'string' ? body.contact.trim() : ''
   const content = typeof body?.content === 'string' ? body.content.trim() : ''
+  const relatedUrl = typeof body?.url === 'string' ? body.url.trim() : ''
 
   if (!contact || !content) {
     return fail(event, 400, 'BAD_REQUEST', '请填写联系方式和适配需求')
@@ -54,6 +56,14 @@ export default defineEventHandler(async (event): Promise<ContactResponse> => {
   }
   if (content.length > MAX_CONTENT_LENGTH) {
     return fail(event, 400, 'BAD_REQUEST', `需求描述请控制在 ${MAX_CONTENT_LENGTH} 字以内`)
+  }
+  if (relatedUrl) {
+    if (relatedUrl.length > MAX_URL_LENGTH) {
+      return fail(event, 400, 'BAD_REQUEST', `链接请控制在 ${MAX_URL_LENGTH} 字以内`)
+    }
+    if (!/^https?:\/\/\S+$/i.test(relatedUrl)) {
+      return fail(event, 400, 'BAD_REQUEST', '链接格式不正确，请以 http:// 或 https:// 开头')
+    }
   }
 
   const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
@@ -73,6 +83,7 @@ export default defineEventHandler(async (event): Promise<ContactResponse> => {
     '',
     `联系方式：${contact}`,
     `提交时间：${sentAt}`,
+    ...(relatedUrl ? [`相关链接：${relatedUrl}`] : []),
     '',
     '需求描述：',
     content
