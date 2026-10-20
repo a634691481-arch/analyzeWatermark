@@ -73,7 +73,61 @@ interface BiliDurl {
   order?: number
 }
 
-/** 调 B 站接口：统一带 UA + Referer，可选带上用户自己的 SESSDATA */
+/**
+ * 风控票据 buvid3。
+ *
+ * 无 cookie 直接打 api.bilibili.com 会被判为机器请求，返回 412；
+ * 海外 / 机房 IP（例如 Vercel）尤其敏感 —— 同一个视频本地住宅 IP 正常，
+ * 部署到香港区域后稳定 412。先访问首页 / finger/spi 拿一套 buvid 再请求即可。
+ */
+let buvidCache: { value: string, expiresAt: number } | null = null
+const BUVID_TTL = 30 * 60 * 1000
+
+function mergeSetCookies(response: Response, jar: Record<string, string>): void {
+  for (const raw of response.headers.getSetCookie?.() ?? []) {
+    const pair = raw.split(';')[0] ?? ''
+    const index = pair.indexOf('=')
+    if (index > 0) jar[pair.slice(0, index).trim()] = pair.slice(index + 1).trim()
+  }
+}
+
+async function acquireBuvidCookie(): Promise<string> {
+  if (buvidCache && buvidCache.expiresAt > Date.now()) return buvidCache.value
+
+  const jar: Record<string, string> = {}
+  // finger/spi 会直接下发 b_3 / b_4，比解析首页 Set-Cookie 更稳
+  const seeds = ['https://api.bilibili.com/x/frontend/finger/spi', 'https://www.bilibili.com/']
+
+  for (const seed of seeds) {
+    try {
+      const response = await fetch(seed, {
+        headers: { 'user-agent': BROWSER_UA, 'accept-language': 'zh-CN,zh;q=0.9' },
+        signal: AbortSignal.timeout(8_000)
+      })
+      if (seed.includes('finger/spi')) {
+        const payload = await response.json().catch(() => null) as
+          | { data?: { b_3?: string, b_4?: string } }
+          | null
+        if (payload?.data?.b_3) jar.buvid3 = payload.data.b_3
+        if (payload?.data?.b_4) jar.buvid4 = payload.data.b_4
+      }
+      mergeSetCookies(response, jar)
+    }
+    catch {
+      // 取不到票据就退回无 cookie 请求，让上层给出原始错误
+    }
+    if (jar.buvid3) break
+  }
+
+  const value = ['buvid3', 'buvid4', 'b_nut', 'buvid_fp']
+    .map(key => (jar[key] ? `${key}=${jar[key]}` : ''))
+    .filter(Boolean)
+    .join('; ')
+  if (value) buvidCache = { value, expiresAt: Date.now() + BUVID_TTL }
+  return value
+}
+
+/** 调 B 站接口：统一带 UA + Referer + buvid 票据，可选带上用户自己的 SESSDATA */
 async function fetchBilibiliJson<T>(url: string, timeout = 15_000): Promise<T> {
   const headers: Record<string, string> = {
     'user-agent': BROWSER_UA,
@@ -82,9 +136,13 @@ async function fetchBilibiliJson<T>(url: string, timeout = 15_000): Promise<T> {
     'accept-language': 'zh-CN,zh;q=0.9'
   }
 
+  const cookies: string[] = []
+  const buvid = await acquireBuvidCookie()
+  if (buvid) cookies.push(buvid)
   // 可选：用户自己的登录态，用于拿更高清晰度；只透传，不记录
   const sessdata = process.env.BILIBILI_SESSDATA
-  if (sessdata) headers.cookie = `SESSDATA=${sessdata}`
+  if (sessdata) cookies.push(`SESSDATA=${sessdata}`)
+  if (cookies.length) headers.cookie = cookies.join('; ')
 
   let response: Response
   try {
@@ -93,6 +151,20 @@ async function fetchBilibiliJson<T>(url: string, timeout = 15_000): Promise<T> {
   catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     throw new ParseError('FETCH_FAILED', `无法访问 B 站接口：${reason}`, 502)
+  }
+
+  // 票据过期时 B 站仍可能回 412，换一套新的重试一次
+  if (response.status === 412) {
+    buvidCache = null
+    const fresh = await acquireBuvidCookie()
+    if (fresh) headers.cookie = [fresh, sessdata ? `SESSDATA=${sessdata}` : ''].filter(Boolean).join('; ')
+    try {
+      response = await fetch(url, { headers, signal: AbortSignal.timeout(timeout) })
+    }
+    catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      throw new ParseError('FETCH_FAILED', `无法访问 B 站接口：${reason}`, 502)
+    }
   }
 
   if (!response.ok) {
