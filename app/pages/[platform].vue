@@ -67,6 +67,19 @@ async function onCopy(item: ParsedMedia) {
   await copyLink(item)
 }
 
+/** 解析失败统一走 toast，不在页面里留常驻错误条 */
+const toast = useToast()
+watch(errorMessage, (message) => {
+  if (!message) return
+  toast.add({
+    title: message,
+    description: `请确认链接是 ${name} 的分享链接，且内容中包含图片或视频。`,
+    color: 'error',
+    icon: 'i-lucide-triangle-alert',
+    duration: 6000
+  })
+})
+
 // ---------------------------------------------------------------- 文案
 
 const steps = [
@@ -191,15 +204,6 @@ useSchemaOrg([
       <div class="mt-8">
         <ParseForm v-model="inputUrl" :loading="loading" @submit="parse" />
       </div>
-
-      <UAlert
-        v-if="errorMessage"
-        class="mt-6"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-triangle-alert"
-        :title="errorMessage"
-      />
 
       <section v-if="result" class="mt-10">
         <div class="flex flex-col gap-4 rounded-2xl bg-elevated p-4 ring ring-default sm:flex-row sm:items-center sm:justify-between sm:p-5">

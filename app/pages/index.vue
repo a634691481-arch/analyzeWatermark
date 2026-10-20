@@ -66,6 +66,21 @@ async function onCopy(item: ParsedMedia) {
   })
 }
 
+/**
+ * 解析失败统一走 toast，不在页面里留一块常驻红条。
+ * errorMessage 每次解析前会被清空，所以同样的错误连续出现也能再次弹出。
+ */
+watch(errorMessage, (message) => {
+  if (!message) return
+  toast.add({
+    title: message,
+    description: '请确认链接完整可访问，且内容中包含图片或视频。',
+    color: 'error',
+    icon: 'i-lucide-triangle-alert',
+    duration: 6000
+  })
+})
+
 const steps = [
   {
     no: 'STEP 1',
@@ -171,16 +186,6 @@ useSchemaOrg([
         v-model="inputUrl"
         :loading="loading"
         @submit="parse"
-      />
-
-      <UAlert
-        v-if="errorMessage"
-        class="mt-6"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-triangle-alert"
-        :title="errorMessage"
-        description="请确认链接完整可访问，且内容中包含图片或视频。"
       />
 
       <section v-if="result" class="mt-10">
