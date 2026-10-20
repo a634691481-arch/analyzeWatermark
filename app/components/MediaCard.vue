@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ParsedMedia } from '#shared/types'
+import CardSpotlight from '~/components/inspira/CardSpotlight.vue'
 import GlowBorder from '~/components/inspira/GlowBorder.vue'
 
 const props = defineProps<{
@@ -31,9 +32,12 @@ const durationText = computed(() => (isVideo.value ? formatDuration(props.item.d
 </script>
 
 <template>
-  <div
-    class="group relative flex flex-col overflow-hidden rounded-xl border bg-white/[0.04] backdrop-blur-sm transition"
+  <CardSpotlight
+    class="border bg-white/[0.04] backdrop-blur-sm transition"
     :class="selected ? 'border-transparent' : 'border-white/10 hover:border-primary/40'"
+    :gradient-size="280"
+    :gradient-color="selected ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.07)'"
+    slot-class="flex flex-col"
   >
     <!-- 选中态：沿边框循环跑的发光描边 -->
     <GlowBorder
@@ -164,5 +168,5 @@ const durationText = computed(() => (isVideo.value ? formatDuration(props.item.d
         />
       </div>
     </div>
-  </div>
+  </CardSpotlight>
 </template>
