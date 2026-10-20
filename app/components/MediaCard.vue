@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ParsedMedia } from '#shared/types'
+import GlowBorder from '~/components/inspira/GlowBorder.vue'
 
 const props = defineProps<{
   item: ParsedMedia
@@ -31,9 +32,17 @@ const durationText = computed(() => (isVideo.value ? formatDuration(props.item.d
 
 <template>
   <div
-    class="group flex flex-col overflow-hidden rounded-xl bg-elevated ring transition"
-    :class="selected ? 'ring-2 ring-primary' : 'ring-default hover:ring-primary/40'"
+    class="group relative flex flex-col overflow-hidden rounded-xl border bg-white/[0.04] backdrop-blur-sm transition"
+    :class="selected ? 'border-transparent' : 'border-white/10 hover:border-primary/40'"
   >
+    <!-- 选中态：沿边框循环跑的发光描边 -->
+    <GlowBorder
+      v-if="selected"
+      :border-radius="12"
+      :border-width="1.5"
+      :duration="6"
+      :color="['#10b981', '#22d3ee', '#10b981']"
+    />
     <div class="relative aspect-square overflow-hidden bg-muted">
       <!-- 占位小图：先出画面，避免大文件白屏 -->
       <img

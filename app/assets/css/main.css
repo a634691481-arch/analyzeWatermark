@@ -1,2 +1,49 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+/**
+ * 全站固定深色（见 nuxt.config.ts 的 colorMode），
+ * 底色压到近黑，让粒子背景与绿色微光有对比。
+ */
+@theme {
+  /* GlowBorder 用到的循环动画：让渐变沿边框跑 */
+  --animate-glow: glow var(--duration, 10s) linear infinite;
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    background-position: 0% 0%;
+  }
+
+  50% {
+    background-position: 100% 100%;
+  }
+}
+
+html {
+  color-scheme: dark;
+  background-color: #05070a;
+}
+
+body {
+  background-color: #05070a;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 选中文字用品牌绿，与主色保持一致 */
+::selection {
+  background-color: rgb(16 185 129 / 0.3);
+  color: #ecfdf5;
+}
+
+/* 尊重系统的减少动效设置：粒子与光效静止，避免眩晕 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

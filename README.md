@@ -6,7 +6,7 @@
 
 | 平台 | 单视频 | 图文/图集 | 提取方式 |
 | --- | --- | --- | --- |
-| 豆包 | — | ✅ | `image_ori_raw` 模板 |
+| 豆包 | ⚠️ 仅水印版 | ✅ | 视频 `video_list` 的 `main_url`（优先 h264）；图片 `image_ori_raw` 模板 |
 | 抖音 | ✅ | ✅ | 视频 `playwm`→`play`；图片 `url_list` |
 | 小红书 | ⚠️ 未验证 | ✅ | `nd_dft_*` 模板（`h5_*` 带水印） |
 | 千问 | ✅ | ✅ | `display_list` 的 `image` / `video` 字段 |
@@ -22,6 +22,28 @@ pnpm dev        # http://localhost:3000
 pnpm build      # 生产构建
 pnpm typecheck  # 类型检查
 ```
+
+## 界面与动效
+
+全站固定深色（`nuxt.config.ts` 的 `colorMode` + `<html class="dark">`），不提供主题切换。
+视觉组件来自 [Inspira UI](https://inspira-ui.com/docs/cn/components/)，源码放在
+`app/components/inspira/`（复制式引入，未整包安装）：
+
+| 组件 | 用途 | 用在哪 |
+| --- | --- | --- |
+| `ParticlesBg` | canvas 粒子背景，随鼠标轻微吸附 | `app.vue` 全局固定层 |
+| `ShimmerButton` | 边缘循环扫光的主按钮 | `ParseForm` 的「解析」 |
+| `GlowBorder` | 沿边框循环跑的发光描边 | `MediaCard` 选中态 |
+| `NumberTicker` | 数字滚动动画 | 结果统计（共 / 无水印 / 已选） |
+| `Marquee` | 无限横向滚动条 | 首页已适配平台列表 |
+
+几点实现说明：
+
+- `cn` 自己实现（`app/utils/cn.ts`），只做过滤拼接，不引 `@inspira-ui/plugins`。
+- `GlowBorder` 的动画由 `main.css` 的 `@theme { --animate-glow }` + `@keyframes glow` 提供。
+- `ParticlesBg` 在原版基础上补了 `requestAnimationFrame` 清理、`prefers-reduced-motion` 下只画静态一帧，
+  并给根容器默认 `h-full w-full`（否则外部不传尺寸时 canvas 高度为 0）。
+- 全局 `prefers-reduced-motion: reduce` 会把动画时长压到 0.001ms，Marquee / 扫光 / 粒子都会静止。
 
 ## 部署（Vercel）
 
@@ -53,6 +75,7 @@ AI 生图与短视频平台在 CDN 上通常同时保存两份文件：一份是
 | 平台 | 带水印 | 无水印 |
 | --- | --- | --- |
 | 豆包 | `~tplv-xxx-cdld_wm3` / `cpreview_wm1` | `~tplv-xxx-image_raw` |
+| 豆包视频 | 画面左上角烧入「豆包 AI 生成」，`lr=video_gen_watermark_dyn`；删掉/改掉该参数字节数完全不变 | **没有干净版**，如实标注「仅水印版」 |
 | 抖音视频 | `/aweme/v1/playwm/` | `/aweme/v1/play/` |
 | 抖音图片 | `~tplv-...-new-water:...` | `~tplv-...-new:...` |
 | 小红书视频 | `media.stream.h264[].masterUrl` | `sns-video-bd/{originVideoKey}` |

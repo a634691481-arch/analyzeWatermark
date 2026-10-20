@@ -6,20 +6,37 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@nuxtjs/seo', '@vite-pwa/nuxt'],
   css: ['~/assets/css/main.css'],
 
+  /**
+   * 全站固定深色，不提供主题切换。
+   * 粒子背景 + 发光边框在深色下才成立，浅色会把整站的层次拉平。
+   */
+  colorMode: {
+    preference: 'dark',
+    fallback: 'dark',
+    classSuffix: ''
+  },
+
   // iOS 加到主屏时用这张图标；地址栏配色跟主题一致
   // manifest 的 link 由 @vite-pwa/nuxt 的运行时组件注入，实测没进 SSR head，
   // 所以这里显式声明一份，保证首屏就有（可安装性的必要条件）
   app: {
     head: {
+      /**
+       * 固定深色：直接给 <html> 打上 dark。
+       * 只靠 color-mode 的客户端脚本会在 SSR 首屏出现没 class 的空档，
+       * 这里显式声明，样式和水合状态一致。
+       */
+      htmlAttrs: { class: 'dark' },
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }
       ],
       meta: [
-        { name: 'theme-color', content: '#10b981' },
+        { name: 'theme-color', content: '#05070a' },
+        { name: 'color-scheme', content: 'dark' },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
-        { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
         { name: 'apple-mobile-web-app-title', content: '去水印' }
       ]
     }
