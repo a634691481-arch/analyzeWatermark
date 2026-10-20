@@ -107,3 +107,62 @@ curl -s -X POST localhost:3000/api/parse -H "content-type: application/json" \
 桌面 UA 与移动 UA 在两地的结果完全一致，排除 UA 因素 —— 是出口 IP 的地域降级。
 `vercel.json` 配 `regions: ["hkg1"]` 后重新部署，线上解析恢复（3 图 / 0.88s）。
 **以后新增平台若在国内、且线上单独失败，先查这条，不要先怀疑字段改版。**
+
+## 视频（样本 xStCBbPYakxvVBcLM）
+
+### 结构
+
+```
+message_list[2].content[json][1].content.creation_block.creations[0].video
+  vid              视频 ID（去重键）
+  cover            { key, image_thumb{384×216}, image_preview{1280×720} }
+  width/height     384×216 —— 这是预览尺寸，不是分辨率
+  duration         15.073 —— 单位是秒，契约要毫秒
+  download_url     官方下载地址（v26-vdl.doubao.com，带 download=true）
+  video_model      JSON 字符串，解析后有 video_list
+    video_list.video_1  definition=720p codec=bytevc1 1280×720 2,916,638B
+    video_list.video_2  definition=720p codec=h264    1280×720 3,598,475B
+```
+
+`video_list[].main_url` 是 **base64**，不是明文 URL，要解码后再用。
+`download_url` 与 `video_1`（bytevc1）字节数完全一致，是同一份文件。
+
+### 没有无水印版本（结论）
+
+地址里带 `lr=video_gen_watermark_dyn`。对 download_url 做三种变形后 HEAD：
+
+| 变形 | 结果 |
+| --- | --- |
+| 原样 | 200 / 2,916,638B |
+| 删除 `lr` | 200 / 2,916,638B |
+| `lr=` 置空 | 200 / 2,916,638B |
+| `lr=video_gen` | 200 / 2,916,638B |
+
+字节数一模一样 → 水印不是 CDN 实时叠加，而是**烧进画面**的。抽帧确认：
+1280×720 画面**左上角固定有「豆包 AI 生成」白字**，三帧位置不变。
+属于 AIGC 强制标识，换地址拿不到干净版，因此适配器对视频固定
+`watermarkFree: false`，UI 显示「仅水印版」。
+
+### 实现要点
+
+- **优先 h264**：bytevc1 部分浏览器播不了，`video_list` 里按 `codec_type` 排序取第一个可用地址。
+- **分辨率取 `vwidth/vheight`**，不要用 `video.width/height`。
+- **封面要排除**：`video.cover` 也是 `{ key, image_thumb, image_preview }`，与图片对象同形，
+  不挡住会被当成一张「作品图片」混进结果（实测视频帖解析出「视频 + 一张 384×216 的图片」）。
+  同一份 SSR 在 3 个 payload 里各有一份副本、对象引用不同，所以 **WeakSet 挡不住，必须按 key 过滤**：
+  先扫一遍收集 `video.cover.key`，再收图片时跳过这些 key。
+- **封面短链是失效的**：`cover.image_preview` / `cover.image_thumb` 指向
+  `aka.doubaocdn.com/s/xxxx`，实测两个都 **404**（这就是「第 2 张图点开是破图」的来源）。
+  视频缩略图要用 `video_model.poster_url`（douyinpic，实测 200 / 56KB）。
+- 一个会话可能同时有图和视频，按 SSR 里的节点顺序混排输出。
+
+### 验证脚本
+
+```bash
+node experiments/doubao/08-video-probe.mjs     # 找视频相关字段
+node experiments/doubao/09-video-detail.mjs    # 打印 video 对象全貌
+node experiments/doubao/10-video-variants.mjs  # 解码 main_url + 各档 HEAD
+node experiments/doubao/11-video-url.mjs       # 完整 URL 与 query 参数
+node experiments/doubao/12-lr-strip.mjs "<download_url>"  # lr 参数能否剥离
+node experiments/doubao/13-video-frames.mjs    # 下载 + 抽帧看水印
+```
