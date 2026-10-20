@@ -7,14 +7,19 @@ import { forEachNode } from '../json-walk'
 const THREAD_PATH = /^\/thread\/([A-Za-z0-9_-]+)\/?$/
 
 /**
- * 豆包图片对象的关键字段（节选）：
+ * 豆包图片对象的关键字段（节选，模板名为 2026-10 实测值）：
  *
- *   image_ori_raw   -> ~tplv-xxx-image_raw.png     无水印原图 ✅
- *   image_ori       -> ~tplv-xxx-cdld_wm3.png      带水印（wm = watermark）
- *   image_preview   -> ~tplv-xxx-cpreview_wm1.png  带水印预览图
- *   image_thumb     -> ~tplv-xxx-cthumb_wm1.png    带水印缩略图
+ *   image_ori_raw   -> ~tplv-xxx-image_raw_hflow    无水印原图 ✅
+ *   image_ori       -> ~tplv-xxx-cgen_lwm3_hflow    带水印（lwm = logo watermark）
+ *   image_preview   -> ~tplv-xxx-cgen_lwm3_hflow    与 ori 同一份模板，同尺寸同体积
+ *   image_thumb     -> ~tplv-xxx-cthumb_lwm3        带水印缩略图（真正的缩略尺寸）
  *
- * 所以「去水印」的本质不是修图，而是把 CDN 上另一份没打水印的原始文件地址取出来。
+ * 实测对比（xTOlFYCgraKkBExtJ）：raw vs ori 仅右下角 238×55 px、0.196% 像素有差异，
+ * 正是「豆包AI生成」水印层，画面本身一致 —— 所以「去水印」不是修图，
+ * 而是把 CDN 上另一份没打水印的原始文件地址取出来。
+ *
+ * 模板名会变（早期是 cdld_wm3 / cpreview_wm1），但两族的语义稳定：
+ * 带 `raw` 的是原图，带 `wm` / `lwm` 的是水印版。
  */
 interface DoubaoImage {
   key?: string
@@ -88,8 +93,13 @@ function toParsedMedia(collected: CollectedImage, index: number, awemeSuffix: st
   const best = raw ?? fallback
   if (!best?.url) return null
 
-  const thumbnail = payload.image_preview?.url ?? payload.image_thumb?.url
-  const extension = raw ? 'png' : extensionFromKey(payload.key)
+  /**
+   * 缩略图必须用 image_thumb。
+   * image_preview 现在与 image_ori 是同一份模板（实测同为 2720×1520 / 5MB），
+   * 拿它当占位图等于每张卡片多重下 5MB —— 缩略图只有 148KB。
+   */
+  const thumbnail = payload.image_thumb?.url ?? payload.image_preview?.url
+  const extension = extensionFromUrl(best.url) ?? extensionFromKey(payload.key)
 
   return {
     id: payload.key ?? best.url,
@@ -103,6 +113,16 @@ function toParsedMedia(collected: CollectedImage, index: number, awemeSuffix: st
     watermarkFree: Boolean(raw),
     prompt: collected.prompt
   }
+}
+
+/**
+ * 以 CDN 实际返回的模板后缀为准。
+ *
+ * 源 key 是 `.jpeg`，但模板名后面会再拼 `.png`（image_raw_hflow → 返回 image/png），
+ * 按 key 猜会把 jpeg 写进文件名，下载器拿到的是扩展名与内容不符的文件。
+ */
+function extensionFromUrl(url: string): string | undefined {
+  return url.match(/\.([a-z0-9]+)(?:\?|$)/i)?.[1]?.toLowerCase()
 }
 
 function extensionFromKey(key?: string): string {
