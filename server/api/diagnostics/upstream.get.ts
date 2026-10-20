@@ -1,11 +1,11 @@
 /**
  * GET /api/diagnostics/upstream?url=<豆包分享链接>
  *
- * 线上排障专用：把「服务器出口 IP / 各 UA 策略下抓到的响应特征」直接吐出来，
- * 用来判断解析失败是「页面改版」还是「出口 IP 被风控」。
+ * 线上排障专用：把「服务器出口 IP / Vercel 区域 / 各 UA 策略下抓到的响应特征」
+ * 直接吐出来，用来判断解析失败是「页面改版」还是「出口 IP 被地域策略降级」。
  *
  * 只回摘要，不回正文；只允许 doubao.com，避免被当成通用代理。
- * ⚠️ 排障完成后应删除此文件。
+ * 默认关闭，需要时在环境变量里设 NUXT_DIAG_ENABLED=1 再访问。
  */
 import { BROWSER_UA, MOBILE_UA } from '../../utils/security'
 
@@ -26,6 +26,10 @@ interface ProbeResult {
 }
 
 export default defineEventHandler(async (event) => {
+  if (process.env.NUXT_DIAG_ENABLED !== '1') {
+    throw createError({ statusCode: 404, statusMessage: 'Not Found' })
+  }
+
   const query = getQuery(event)
   const target = typeof query.url === 'string' ? query.url : ''
 

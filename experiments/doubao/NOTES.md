@@ -92,3 +92,18 @@ curl -s -X POST localhost:3000/api/parse -H "content-type: application/json" \
 
 实测：解析 0.5~0.7s（首次请求含 dev 编译会到 40s+，属正常），
 代理下载原图 5MB / 1.07s，缩略图 148KB / 0.10s。
+
+## 线上部署：地域策略（2026-10-20 修复）
+
+线上（Vercel）报「未能从页面读取到分享数据」，本地同一链接正常。用
+`/api/diagnostics/upstream` 对比同链接、同 UA、不同区域：
+
+| 区域 | 出口 IP | HTML | `data-fn-args` | `_ROUTER_DATA` | CDN |
+| --- | --- | --- | --- | --- | --- |
+| iad1（美东，Vercel 默认） | 3.235.23.204 | 72,550 B | ❌ | ❌ | volc-dcdn |
+| hkg1（香港） | 16.163.52.235 | 180,716 B | ✅ | ✅ | Tengine |
+| 本地（中国） | — | 180,718 B | ✅ | ✅ | Tengine |
+
+桌面 UA 与移动 UA 在两地的结果完全一致，排除 UA 因素 —— 是出口 IP 的地域降级。
+`vercel.json` 配 `regions: ["hkg1"]` 后重新部署，线上解析恢复（3 图 / 0.88s）。
+**以后新增平台若在国内、且线上单独失败，先查这条，不要先怀疑字段改版。**
