@@ -32,6 +32,17 @@ export function supportedPlatforms(): PlatformInfo[] {
 
 /** URL 末尾常见的粘连字符：中文标点、英文标点、emoji 旁的空格等 */
 const TRAILING_JUNK = /[.,;:!?)\]}>）】》」』”，。、；：！？'"]+$/
+/**
+ * URL 本体只取可见 ASCII。
+ *
+ * 分享文案常常是「链接紧跟中文」且中间没有空格，例如：
+ *   https://www.doubao.com/thread/xxxx，复制本条信息
+ *   http://xhslink.com/a/xxxx，复制本条信息
+ * 若用 [^\s]+ 抓取，中文会被一起吞进去；new URL 再把中文百分号编码，
+ * 所有基于 pathname 的 match 全部失效（表现为「暂不支持该平台」）。
+ * 合法的新闻分享链接都是 ASCII，裸中文路径不在支持范围内。
+ */
+const URL_BODY = /https?:\/\/[\x21-\x7E]+/gi
 /** 不带协议时，形如 v.douyin.com/xxxx 也算链接 */
 const BARE_HOST = /^[\w-]+(\.[\w-]+)+(\/|$|\?)/
 
@@ -52,7 +63,7 @@ function extractCandidateUrls(input: string): string[] {
   if (!text) return []
 
   const found: string[] = []
-  for (const match of text.matchAll(/https?:\/\/[^\s]+/gi)) {
+  for (const match of text.matchAll(URL_BODY)) {
     const cleaned = trimTrailingJunk(match[0])
     if (cleaned) found.push(cleaned)
   }
