@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { ParsedMedia, PlatformInfo } from '#shared/types'
+import Marquee from '~/components/inspira/Marquee.vue'
+import NumberTicker from '~/components/inspira/NumberTicker.vue'
 
 const toast = useToast()
 
@@ -20,8 +22,12 @@ const {
   downloadOne,
   downloadOriginal,
   downloadZip,
-  copyLink
+  copyLink,
+  reset
 } = useMediaParser()
+
+// 进入页面 / 切回标签页 / 首次交互时，自动把剪贴板里的分享文案填进来
+const { readFromClipboard } = useClipboardAutofill(inputUrl)
 
 const { data: platforms } = await useFetch<PlatformInfo[]>('/api/platforms', {
   default: () => [] as PlatformInfo[]
@@ -80,6 +86,20 @@ watch(errorMessage, (message) => {
     duration: 6000
   })
 })
+
+/** 有输入或结果时才需要清空按钮 */
+const hasContent = computed(() => Boolean(inputUrl.value.trim() || result.value))
+
+function onClear() {
+  reset()
+  previewIndex.value = null
+  toast.add({
+    title: '已清空',
+    description: '输入内容与解析结果已重置',
+    color: 'success',
+    icon: 'i-lucide-check'
+  })
+}
 
 const steps = [
   {
@@ -146,7 +166,7 @@ useSchemaOrg([
 </script>
 
 <template>
-  <div class="min-h-screen bg-default">
+  <div class="min-h-screen">
     <UContainer class="max-w-6xl py-10 sm:py-16">
       <header class="text-center">
         <UBadge
@@ -155,42 +175,52 @@ useSchemaOrg([
           size="sm"
           icon="i-lucide-image-down"
           :label="`已适配 ${platformNames.length} 个平台`"
+          class="border border-primary/20"
         />
-        <h1 class="mt-4 text-3xl font-bold tracking-tight text-highlighted sm:text-4xl">
+        <h1
+          class="mt-4 bg-gradient-to-b from-white via-white to-emerald-200/60 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl"
+        >
           一键解析无水印原片
         </h1>
-        <p class="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
-          粘贴分享链接，自动提取云端保存的<b class="text-highlighted">无水印原图 / 原视频</b>，
+        <p class="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-white/60 sm:text-base">
+          粘贴分享链接，自动提取云端保存的<b class="text-white/90">无水印原图 / 原视频</b>，
           支持单个下载与批量打包，无需安装任何插件。
         </p>
 
         <!-- 已适配平台：数据来自 /api/platforms，新增平台自动跟着变 -->
-        <ul class="mt-7 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-          <li v-for="platform in platforms" :key="platform.id">
-            <span
-              class="group inline-flex items-center gap-2 rounded-full bg-elevated px-3.5 py-2 text-xs ring ring-default transition-colors duration-300 hover:ring-primary/50"
-              :title="platform.example"
-            >
-              <UIcon
-                v-if="platform.icon"
-                :name="platform.icon"
-                class="size-4 shrink-0 text-muted transition-colors duration-300 group-hover:text-primary"
-              />
-              <span class="font-medium text-toned">{{ platform.name }}</span>
-            </span>
-          </li>
-        </ul>
+        <Marquee
+          class="mx-auto mt-7 max-w-3xl [--duration:30s] [--gap:0.75rem] [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
+          :repeat="2"
+          pause-on-hover
+        >
+          <span
+            v-for="platform in platforms"
+            :key="platform.id"
+            class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-2 text-xs text-white/70"
+            :title="platform.example"
+          >
+            <UIcon
+              v-if="platform.icon"
+              :name="platform.icon"
+              class="size-4 shrink-0 text-emerald-300/80"
+            />
+            <span class="font-medium">{{ platform.name }}</span>
+          </span>
+        </Marquee>
       </header>
 
       <ParseForm
         v-model="inputUrl"
         :loading="loading"
+        :clearable="hasContent"
         @submit="parse"
+        @clear="onClear"
+        @paste="readFromClipboard"
       />
 
       <section v-if="result" class="mt-10">
         <div
-          class="flex flex-col gap-4 rounded-2xl bg-elevated p-4 ring ring-default sm:flex-row sm:items-center sm:justify-between sm:p-5"
+          class="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:p-5"
         >
           <div class="min-w-0">
             <div class="flex items-center gap-2">
@@ -199,9 +229,17 @@ useSchemaOrg([
                 {{ result.title || '未命名作品' }}
               </span>
             </div>
-            <p class="mt-1 text-xs text-dimmed">
-              共 {{ media.length }} 个 · 无水印 {{ watermarkFreeCount }} 个 · 已选 {{ selectedMedia.length }} 个
-              <template v-if="result.author"> · 作者 {{ result.author }}</template>
+            <p class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-white/45">
+              <span>共</span>
+              <NumberTicker :value="media.length" :decimal-places="0" class="font-semibold" />
+              <span>个 · 无水印</span>
+              <NumberTicker :value="watermarkFreeCount" :decimal-places="0" class="font-semibold" />
+              <span>个 · 已选</span>
+              <NumberTicker :value="selectedMedia.length" :decimal-places="0" class="font-semibold" />
+              <span>个</span>
+              <template v-if="result.author">
+                <span>· 作者 {{ result.author }}</span>
+              </template>
             </p>
           </div>
 
@@ -260,21 +298,21 @@ useSchemaOrg([
           <div
             v-for="step in steps"
             :key="step.no"
-            class="rounded-2xl bg-elevated p-5 ring ring-default"
+            class="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm transition-colors hover:border-primary/30"
           >
             <span class="text-xs font-semibold tracking-wide text-primary">{{ step.no }}</span>
             <h3 class="mt-2 text-sm font-medium text-highlighted">{{ step.title }}</h3>
-            <p class="mt-1 text-xs leading-relaxed text-muted">{{ step.text }}</p>
+            <p class="mt-1 text-xs leading-relaxed text-white/55">{{ step.text }}</p>
           </div>
         </div>
 
-        <p class="mt-8 text-center text-xs leading-relaxed text-dimmed">
+        <p class="mt-8 text-center text-xs leading-relaxed text-white/35">
           原理说明：解析的是平台云端保存的<u>未压缩原始文件</u>，而不是对带水印素材做修补。<br>
           若作者上传时就只有带水印版本，卡片会标注「仅水印版」。
         </p>
       </section>
 
-      <ContactAuthor />
+      <ContactAuthor :url="inputUrl" />
 
       <BackToTop />
 

@@ -49,8 +49,12 @@ const {
   downloadOne,
   downloadOriginal,
   downloadZip,
-  copyLink
+  copyLink,
+  reset
 } = useMediaParser()
+
+// 自动填入剪贴板里的分享文案（落地页同样适用）
+const { readFromClipboard } = useClipboardAutofill(inputUrl)
 
 const previewIndex = ref<number | null>(null)
 
@@ -79,6 +83,20 @@ watch(errorMessage, (message) => {
     duration: 6000
   })
 })
+
+/** 有输入或结果时才需要清空按钮 */
+const hasContent = computed(() => Boolean(inputUrl.value.trim() || result.value))
+
+function onClear() {
+  reset()
+  previewIndex.value = null
+  toast.add({
+    title: '已清空',
+    description: `输入内容与${name}解析结果已重置`,
+    color: 'success',
+    icon: 'i-lucide-check'
+  })
+}
 
 // ---------------------------------------------------------------- 文案
 
@@ -180,7 +198,7 @@ useSchemaOrg([
 </script>
 
 <template>
-  <div class="min-h-screen bg-default">
+  <div class="min-h-screen">
     <UContainer class="max-w-4xl py-10 sm:py-16">
       <UButton
         to="/"
@@ -193,23 +211,32 @@ useSchemaOrg([
 
       <header>
         <UBadge color="primary" variant="subtle" size="sm" :icon="platform.icon" :label="name" />
-        <h1 class="mt-4 text-3xl font-bold tracking-tight text-highlighted sm:text-4xl">
+        <h1
+          class="mt-4 bg-gradient-to-b from-white via-white to-emerald-200/60 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl"
+        >
           {{ name }}去水印 · 无水印原图与原片下载
         </h1>
-        <p class="mt-4 text-sm leading-relaxed text-muted sm:text-base">
+        <p class="mt-4 text-sm leading-relaxed text-white/60 sm:text-base">
           {{ summary }}
         </p>
       </header>
 
       <div class="mt-8">
-        <ParseForm v-model="inputUrl" :loading="loading" @submit="parse" />
+        <ParseForm
+          v-model="inputUrl"
+          :loading="loading"
+          :clearable="hasContent"
+          @submit="parse"
+          @clear="onClear"
+          @paste="readFromClipboard"
+        />
       </div>
 
       <section v-if="result" class="mt-10">
-        <div class="flex flex-col gap-4 rounded-2xl bg-elevated p-4 ring ring-default sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div class="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div class="min-w-0">
             <p class="truncate text-sm font-medium text-highlighted">{{ result.title || '未命名作品' }}</p>
-            <p class="mt-1 text-xs text-dimmed">
+            <p class="mt-1 text-xs text-white/45">
               共 {{ media.length }} 个 · 无水印 {{ watermarkFreeCount }} 个 · 已选 {{ selectedMedia.length }} 个
             </p>
           </div>
@@ -260,10 +287,14 @@ useSchemaOrg([
 
       <section v-else class="mt-12">
         <div class="grid gap-4 sm:grid-cols-3">
-          <div v-for="step in steps" :key="step.no" class="rounded-2xl bg-elevated p-5 ring ring-default">
+          <div
+            v-for="step in steps"
+            :key="step.no"
+            class="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm"
+          >
             <span class="text-xs font-semibold tracking-wide text-primary">{{ step.no }}</span>
             <h2 class="mt-2 text-sm font-medium text-highlighted">{{ step.title }}</h2>
-            <p class="mt-1 text-xs leading-relaxed text-muted">{{ step.text }}</p>
+            <p class="mt-1 text-xs leading-relaxed text-white/55">{{ step.text }}</p>
           </div>
         </div>
       </section>
@@ -271,9 +302,13 @@ useSchemaOrg([
       <section class="mt-14">
         <h2 class="text-lg font-semibold tracking-tight text-highlighted">常见问题</h2>
         <dl class="mt-5 space-y-4">
-          <div v-for="faq in faqs" :key="faq.question" class="rounded-2xl bg-elevated p-5 ring ring-default">
+          <div
+            v-for="faq in faqs"
+            :key="faq.question"
+            class="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm"
+          >
             <dt class="text-sm font-medium text-highlighted">{{ faq.question }}</dt>
-            <dd class="mt-2 text-xs leading-relaxed text-muted">{{ faq.answer }}</dd>
+            <dd class="mt-2 text-xs leading-relaxed text-white/55">{{ faq.answer }}</dd>
           </div>
         </dl>
       </section>
@@ -293,6 +328,9 @@ useSchemaOrg([
           </li>
         </ul>
       </section>
+
+      <!-- 落地页同样有「联系作者适配」入口，Modal 必须挂在这里，否则点了没反应 -->
+      <ContactAuthor :url="inputUrl" />
 
       <BackToTop />
 

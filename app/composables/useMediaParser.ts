@@ -142,6 +142,14 @@ export function useMediaParser() {  const inputUrl = ref('')
     }
   }
 
+  /** 清空输入、错误与结果：只重置数据，不动进行中的请求状态 */
+  function reset() {
+    inputUrl.value = ''
+    errorMessage.value = ''
+    result.value = null
+    selectedIds.value = []
+  }
+
   return {
     inputUrl,
     loading,
@@ -159,6 +167,7 @@ export function useMediaParser() {  const inputUrl = ref('')
     downloadOne,
     downloadOriginal,
     downloadZip,
-    copyLink
+    copyLink,
+    reset
   }
 }
